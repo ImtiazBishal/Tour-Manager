@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from './lib/supabase'
+import html2canvas from 'html2canvas'
+import jsPDF from 'jspdf'
 import {
   LayoutDashboard,
   Receipt,
@@ -33,6 +35,10 @@ import {
   AlertTriangle,
   Pencil,
   Check,
+  Clock,
+  HelpCircle,
+  Bell,
+  Download,
 } from 'lucide-react'
 
 /* ─── Constants ─── */
@@ -86,6 +92,14 @@ export default function App() {
   }, [])
 
   const closeConfirm = useCallback(() => setConfirm(null), [])
+
+  // FAB state
+  const [fabOpen, setFabOpen] = useState(false)
+  const [fabAction, setFabAction] = useState(null)
+
+  function closeFabAction() {
+    setFabAction(null)
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100/50 pb-16 sm:pb-0">
@@ -197,8 +211,30 @@ export default function App() {
         </div>
       </nav>
 
+      {/* Desktop Left Sidebar */}
+      <div className="fixed left-0 top-0 z-40 hidden h-full flex-col items-center border-r border-gray-200/80 bg-white/95 shadow-sm backdrop-blur-lg sm:flex sm:w-14 sm:pt-[3.5rem] sm:pb-4">
+        <div className="flex flex-1 flex-col items-center gap-2 pt-3">
+          <button
+            onClick={() => setActiveTab('help')}
+            className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 ${
+              activeTab === 'help'
+                ? 'bg-indigo-100 text-indigo-600 shadow-sm'
+                : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+            }`}
+            title="Help Guide"
+          >
+            <HelpCircle className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="py-2">
+          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-sm">
+            <Wallet className="h-4 w-4 text-white" />
+          </div>
+        </div>
+      </div>
+
       {/* Page Content */}
-      <main className="mx-auto max-w-5xl px-4 py-5 sm:py-6">
+      <main className="mx-auto max-w-5xl px-4 py-5 sm:py-6 sm:ml-14">
         <div className="animate-fade-in" key={activeTab}>
           {activeTab === 'dashboard' && (
             <Dashboard showToast={showToast} />
@@ -214,6 +250,9 @@ export default function App() {
           )}
           {activeTab === 'settlement' && (
             <Settlement showToast={showToast} />
+          )}
+          {activeTab === 'help' && (
+            <HelpGuide />
           )}
         </div>
       </main>
@@ -234,6 +273,86 @@ export default function App() {
           onCancel={closeConfirm}
         />
       )}
+
+      {/* Mobile FAB + Speed Dial */}
+      <div className="sm:hidden">
+        {/* Backdrop when FAB is open */}
+        {fabOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black/20"
+            onClick={() => setFabOpen(false)}
+          />
+        )}
+
+        {/* Speed Dial Items */}
+        {fabOpen && (
+          <div className="fixed bottom-36 right-4 z-50 flex flex-col items-end gap-3">
+            {[
+              { key: 'expense', label: 'Add Expense', icon: Receipt, bg: 'bg-indigo-500', ring: 'ring-indigo-100' },
+              { key: 'advance', label: 'Add Advance', icon: Banknote, bg: 'bg-emerald-500', ring: 'ring-emerald-100' },
+              { key: 'contribution', label: 'Add Contribution', icon: HeartHandshake, bg: 'bg-rose-500', ring: 'ring-rose-100' },
+              { key: 'help', label: 'Help Guide', icon: HelpCircle, bg: 'bg-gray-500', ring: 'ring-gray-100' },
+            ].map((item, idx) => {
+              const Icon = item.icon
+              return (
+                <button
+                  key={item.key}
+                  onClick={() => {
+                    setFabOpen(false)
+                    if (item.key === 'help') {
+                      setActiveTab('help')
+                    } else {
+                      setFabAction(item.key)
+                    }
+                  }}
+                  className="animate-slide-up flex items-center gap-3"
+                  style={{ animationDelay: `${idx * 60}ms` }}
+                >
+                  <span className="rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-lg ring-1 ring-gray-200">
+                    {item.label}
+                  </span>
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${item.bg} text-white shadow-xl ring-4 ${item.ring}`}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {/* FAB Button */}
+        <button
+          onClick={() => setFabOpen(!fabOpen)}
+          className={`fixed bottom-20 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-xl transition-all duration-300 ${
+            fabOpen
+              ? 'bg-gray-700 rotate-45 scale-110 shadow-gray-700/30'
+              : 'bg-indigo-600 shadow-indigo-500/40 hover:shadow-indigo-500/60 hover:scale-105 active:scale-95'
+          }`}
+          aria-label={fabOpen ? 'Close menu' : 'Quick actions'}
+        >
+          <Plus className="h-6 w-6 text-white transition-transform duration-300" />
+        </button>
+      </div>
+
+      {/* FAB Quick Add Modals */}
+      <QuickAddExpenseModal
+        open={fabAction === 'expense'}
+        onClose={closeFabAction}
+        onSuccess={() => {}}
+        showToast={showToast}
+      />
+      <QuickAddAdvanceModal
+        open={fabAction === 'advance'}
+        onClose={closeFabAction}
+        onSuccess={() => {}}
+        showToast={showToast}
+      />
+      <QuickAddContributionModal
+        open={fabAction === 'contribution'}
+        onClose={closeFabAction}
+        onSuccess={() => {}}
+        showToast={showToast}
+      />
     </div>
   )
 }
@@ -323,6 +442,8 @@ function Dashboard({ showToast }) {
   const [categoryBreakdown, setCategoryBreakdown] = useState([])
   const [recentExpenses, setRecentExpenses] = useState([])
   const [balances, setBalances] = useState([])
+  const [todayStats, setTodayStats] = useState({ expenses: 0, advances: 0, contributions: 0 })
+  const [lastTransactions, setLastTransactions] = useState([])
 
   useEffect(() => { fetchDashboardData() }, [])
 
@@ -333,14 +454,21 @@ function Dashboard({ showToast }) {
 
       const { data: expenses, error: expErr } = await supabase
         .from('expenses')
-        .select('amount, category_id, expense_date, description, expense_categories(name), paid_by:members(name)')
+        .select('amount, category_id, expense_date, description, expense_categories(name), paid_by:members(name), created_at')
         .order('expense_date', { ascending: false })
       if (expErr) throw expErr
 
       const { data: advances, error: advErr } = await supabase
         .from('advances')
-        .select('amount')
+        .select('amount, payment_date, members(name), method, created_at')
+        .order('payment_date', { ascending: false })
       if (advErr) throw advErr
+
+      const { data: contributions, error: conErr } = await supabase
+        .from('contributions')
+        .select('amount, contribution_date, members(name), reason, created_at')
+        .order('contribution_date', { ascending: false })
+      if (conErr) throw conErr
 
       const { data: balanceData, error: balErr } = await supabase
         .from('v_balances')
@@ -354,6 +482,35 @@ function Dashboard({ showToast }) {
       ).length
 
       setStats({ totalExpenses, totalAdvances, netSpending: totalExpenses - totalAdvances, peopleOwing })
+
+      // Compute today's activity
+      const today = new Date().toISOString().split('T')[0]
+      const todayExpenses = (expenses || []).filter((e) => e.expense_date === today)
+      const todayAdvances = (advances || []).filter((a) => a.payment_date === today)
+      const todayContributions = (contributions || []).filter((c) => c.contribution_date === today)
+      setTodayStats({
+        expenses: todayExpenses.reduce((s, e) => s + Number(e.amount), 0),
+        advances: todayAdvances.reduce((s, a) => s + Number(a.amount), 0),
+        contributions: todayContributions.reduce((s, c) => s + Number(c.amount), 0),
+      })
+
+      // Build last 3 transactions across all types
+      const tagged = [
+        ...(expenses || []).map((e) => ({ ...e, _type: 'expense', _date: e.expense_date, _label: e.description, _person: e.paid_by?.name })),
+        ...(advances || []).map((a) => ({ ...a, _type: 'advance', _date: a.payment_date, _label: a.members?.name, _person: a.method })),
+        ...(contributions || []).map((c) => ({ ...c, _type: 'contribution', _date: c.contribution_date, _label: c.members?.name, _person: c.reason })),
+      ]
+      tagged.sort((a, b) => {
+        const dateA = a._date || ''
+        const dateB = b._date || ''
+        if (dateA > dateB) return -1
+        if (dateA < dateB) return 1
+        // If same date, prefer created_at if available
+        const timeA = a.created_at || ''
+        const timeB = b.created_at || ''
+        return timeB.localeCompare(timeA)
+      })
+      setLastTransactions(tagged.slice(0, 3))
 
       const catMap = {}
       ;(expenses || []).forEach((e) => {
@@ -421,6 +578,88 @@ function Dashboard({ showToast }) {
           )
         })}
       </div>
+
+      {/* Today's Activity Summary */}
+      <div className="grid grid-cols-3 gap-3 sm:gap-4">
+        <div className="animate-slide-up rounded-2xl border border-indigo-100 bg-gradient-to-b from-indigo-50/50 to-white p-3 sm:p-4" style={{ animationDelay: '0ms' }}>
+          <div className="flex items-center gap-2 mb-1.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 sm:h-8 sm:w-8">
+              <Receipt className="h-3.5 w-3.5 text-indigo-600 sm:h-4 sm:w-4" />
+            </div>
+            <span className="text-[11px] font-medium text-gray-500 sm:text-xs">Today's Expenses</span>
+          </div>
+          <p className="text-base font-bold text-gray-900 sm:text-lg">
+            {todayStats.expenses > 0 ? `৳${todayStats.expenses.toFixed(2)}` : '—'}
+          </p>
+        </div>
+        <div className="animate-slide-up rounded-2xl border border-emerald-100 bg-gradient-to-b from-emerald-50/50 to-white p-3 sm:p-4" style={{ animationDelay: '60ms' }}>
+          <div className="flex items-center gap-2 mb-1.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 sm:h-8 sm:w-8">
+              <Banknote className="h-3.5 w-3.5 text-emerald-600 sm:h-4 sm:w-4" />
+            </div>
+            <span className="text-[11px] font-medium text-gray-500 sm:text-xs">Today's Advances</span>
+          </div>
+          <p className="text-base font-bold text-gray-900 sm:text-lg">
+            {todayStats.advances > 0 ? `৳${todayStats.advances.toFixed(2)}` : '—'}
+          </p>
+        </div>
+        <div className="animate-slide-up rounded-2xl border border-rose-100 bg-gradient-to-b from-rose-50/50 to-white p-3 sm:p-4" style={{ animationDelay: '120ms' }}>
+          <div className="flex items-center gap-2 mb-1.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-100 sm:h-8 sm:w-8">
+              <HeartHandshake className="h-3.5 w-3.5 text-rose-600 sm:h-4 sm:w-4" />
+            </div>
+            <span className="text-[11px] font-medium text-gray-500 sm:text-xs">Today's Contribs</span>
+          </div>
+          <p className="text-base font-bold text-gray-900 sm:text-lg">
+            {todayStats.contributions > 0 ? `৳${todayStats.contributions.toFixed(2)}` : '—'}
+          </p>
+        </div>
+      </div>
+
+      {/* Last 3 Transactions */}
+      {lastTransactions.length > 0 && (
+        <div className="card animate-slide-up" style={{ animationDelay: '150ms' }}>
+          <div className="mb-3 flex items-center gap-2">
+            <Clock className="h-4 w-4 text-indigo-500" />
+            <h3 className="text-sm font-semibold text-gray-900">Latest Activity</h3>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {lastTransactions.map((t, idx) => {
+              const typeConfig = {
+                expense: { icon: Receipt, bg: 'bg-indigo-100', color: 'text-indigo-600', label: 'Expense' },
+                advance: { icon: Banknote, bg: 'bg-emerald-100', color: 'text-emerald-600', label: 'Advance' },
+                contribution: { icon: HeartHandshake, bg: 'bg-rose-100', color: 'text-rose-600', label: 'Contribution' },
+              }
+              const cfg = typeConfig[t._type] || typeConfig.expense
+              const Icon = cfg.icon
+              const amt = Number(t.amount)
+              return (
+                <div key={`${t._type}-${t.id}`} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                  <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${cfg.bg}`}>
+                    <Icon className={`h-4 w-4 ${cfg.color}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate text-sm font-medium text-gray-900">
+                      {t._type === 'expense' ? t._label : t._label}
+                    </p>
+                    <p className="flex items-center gap-1 text-xs text-gray-500">
+                      <Calendar className="h-3 w-3" />
+                      {t._date}
+                      {t._person && <span>· {t._person}</span>}
+                      <span className={`ml-auto badge ${cfg.bg} ${cfg.color} text-[10px]`}>
+                        {cfg.label}
+                      </span>
+                    </p>
+                  </div>
+                  <span className="ml-2 text-sm font-bold text-gray-900">
+                    {t._type === 'contribution' ? '−' : '+'}৳{amt.toFixed(2)}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-5 lg:grid-cols-2 sm:gap-6">
         <div className="card animate-slide-up">
@@ -522,6 +761,7 @@ function Dashboard({ showToast }) {
           })}
         </div>
       </div>
+
     </div>
   )
 }
@@ -553,6 +793,9 @@ function Expenses({ showToast, showConfirm }) {
   const [addingCategory, setAddingCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [addingCategoryLoading, setAddingCategoryLoading] = useState(false)
+  const [addingPerson, setAddingPerson] = useState(false)
+  const [newPersonName, setNewPersonName] = useState('')
+  const [addingPersonLoading, setAddingPersonLoading] = useState(false)
 
   useEffect(() => { fetchData() }, [])
 
@@ -580,9 +823,28 @@ function Expenses({ showToast, showConfirm }) {
   function validateForm() {
     const newErrors = {}
     if (!form.category_id) newErrors.category_id = 'Please select a category'
-    if (!form.description?.trim()) newErrors.description = 'Description is required'
-    if (!form.amount || Number(form.amount) <= 0) newErrors.amount = 'Enter a valid amount'
+    if (!form.description?.trim()) {
+      newErrors.description = 'Description is required'
+    } else if (form.description.trim().length < 3) {
+      newErrors.description = 'Description must be at least 3 characters'
+    } else if (form.description.trim().length > 200) {
+      newErrors.description = 'Description must be under 200 characters'
+    }
+    if (!form.amount) {
+      newErrors.amount = 'Amount is required'
+    } else if (isNaN(Number(form.amount)) || Number(form.amount) <= 0) {
+      newErrors.amount = 'Enter a valid positive amount'
+    } else if (Number(form.amount) > 999999.99) {
+      newErrors.amount = 'Amount cannot exceed ৳999,999.99'
+    } else if ((form.amount.toString().split('.')[1] || '').length > 2) {
+      newErrors.amount = 'Maximum 2 decimal places allowed'
+    }
     if (!form.paid_by) newErrors.paid_by = 'Please select who paid'
+    if (!form.expense_date) {
+      newErrors.expense_date = 'Date is required'
+    } else if (form.expense_date > new Date().toISOString().split('T')[0]) {
+      newErrors.expense_date = 'Date cannot be in the future'
+    }
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -671,9 +933,59 @@ function Expenses({ showToast, showConfirm }) {
     }
   }
 
+  async function handleAddPerson() {
+    const name = newPersonName.trim()
+    if (!name) {
+      showToast('error', 'Person name is required')
+      return
+    }
+    if (name.length < 2) {
+      showToast('error', 'Person name must be at least 2 characters')
+      return
+    }
+    if (name.length > 100) {
+      showToast('error', 'Person name must be under 100 characters')
+      return
+    }
+    try {
+      setAddingPersonLoading(true)
+      const { data, error: insErr } = await supabase
+        .from('members')
+        .insert({ name })
+        .select()
+        .single()
+      if (insErr) throw insErr
+      await fetchData()
+      updateForm('paid_by', data.id)
+      setAddingPerson(false)
+      setNewPersonName('')
+      showToast('success', `Person "${name}" added!`)
+    } catch (err) {
+      showToast('error', err.message || 'Failed to add person')
+    } finally {
+      setAddingPersonLoading(false)
+    }
+  }
+
+  function handleCancelAddPerson() {
+    setAddingPerson(false)
+    setNewPersonName('')
+  }
+
   async function handleAddCategory() {
     const name = newCategoryName.trim()
-    if (!name) return
+    if (!name) {
+      showToast('error', 'Category name is required')
+      return
+    }
+    if (name.length < 2) {
+      showToast('error', 'Category name must be at least 2 characters')
+      return
+    }
+    if (name.length > 100) {
+      showToast('error', 'Category name must be under 100 characters')
+      return
+    }
     try {
       setAddingCategoryLoading(true)
       const { data, error: insErr } = await supabase
@@ -815,16 +1127,62 @@ function Expenses({ showToast, showConfirm }) {
                 />
               </FormField>
               <FormField label="Paid By" error={errors.paid_by}>
-                <select
-                  value={form.paid_by}
-                  onChange={(e) => updateForm('paid_by', e.target.value)}
-                  className={`input input-select ${errors.paid_by ? 'input-error' : ''}`}
-                >
-                  <option value="">Select person</option>
-                  {members.map((m) => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </select>
+                {addingPerson ? (
+                  <div className="flex gap-2 items-start">
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        value={newPersonName}
+                        onChange={(e) => setNewPersonName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddPerson(); } }}
+                        placeholder="Enter person name"
+                        className={`input ${errors.paid_by ? 'input-error' : ''}`}
+                        autoFocus
+                      />
+                    </div>
+                    <div className="flex gap-1 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleAddPerson}
+                        disabled={addingPersonLoading || !newPersonName.trim()}
+                        className="btn-primary !px-3 !py-2.5 !text-xs"
+                        title="Add"
+                      >
+                        {addingPersonLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelAddPerson}
+                        className="btn-secondary !px-3 !py-2.5 !text-xs"
+                        title="Cancel"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <select
+                      value={form.paid_by}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        if (val === '__add__') {
+                          setAddingPerson(true)
+                          setNewPersonName('')
+                        } else {
+                          updateForm('paid_by', val)
+                        }
+                      }}
+                      className={`input input-select ${errors.paid_by ? 'input-error' : ''}`}
+                    >
+                      <option value="">Select person</option>
+                      {members.map((m) => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
+                      ))}
+                      <option value="__add__">➕ Add new person...</option>
+                    </select>
+                  </div>
+                )}
               </FormField>
               <div className="flex items-end sm:col-span-2 lg:col-span-1">
                 <SubmitButton loading={submitting} icon={editingRecord ? Check : Plus}>
@@ -901,6 +1259,9 @@ function Advances({ showToast, showConfirm }) {
   const [showForm, setShowForm] = useState(false)
   const [editingRecord, setEditingRecord] = useState(null)
   const isEditing = editingRecord !== null
+  const [addingPerson, setAddingPerson] = useState(false)
+  const [newPersonName, setNewPersonName] = useState('')
+  const [addingPersonLoading, setAddingPersonLoading] = useState(false)
 
   useEffect(() => { fetchData() }, [])
 
@@ -925,7 +1286,23 @@ function Advances({ showToast, showConfirm }) {
   function validateForm() {
     const newErrors = {}
     if (!form.member_id) newErrors.member_id = 'Please select a person'
-    if (!form.amount || Number(form.amount) <= 0) newErrors.amount = 'Enter a valid amount'
+    if (!form.amount) {
+      newErrors.amount = 'Amount is required'
+    } else if (isNaN(Number(form.amount)) || Number(form.amount) <= 0) {
+      newErrors.amount = 'Enter a valid positive amount'
+    } else if (Number(form.amount) > 999999.99) {
+      newErrors.amount = 'Amount cannot exceed ৳999,999.99'
+    } else if ((form.amount.toString().split('.')[1] || '').length > 2) {
+      newErrors.amount = 'Maximum 2 decimal places allowed'
+    }
+    if (!form.payment_date) {
+      newErrors.payment_date = 'Date is required'
+    } else if (form.payment_date > new Date().toISOString().split('T')[0]) {
+      newErrors.payment_date = 'Date cannot be in the future'
+    }
+    if (form.notes?.length > 500) {
+      newErrors.notes = 'Notes must be under 500 characters'
+    }
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -961,6 +1338,46 @@ function Advances({ showToast, showConfirm }) {
     setForm(EMPTY_ADVANCE_FORM)
     setErrors({})
     setShowForm(false)
+  }
+
+  async function handleAddPerson() {
+    const name = newPersonName.trim()
+    if (!name) {
+      showToast('error', 'Person name is required')
+      return
+    }
+    if (name.length < 2) {
+      showToast('error', 'Person name must be at least 2 characters')
+      return
+    }
+    if (name.length > 100) {
+      showToast('error', 'Person name must be under 100 characters')
+      return
+    }
+    try {
+      setAddingPersonLoading(true)
+      const { data, error: insErr } = await supabase
+        .from('members')
+        .insert({ name })
+        .select()
+        .single()
+      if (insErr) throw insErr
+      const memRes = await supabase.from('members').select('*').neq('name', 'Abir').order('name')
+      if (!memRes.error) setMembers(memRes.data || [])
+      updateForm('member_id', data.id)
+      setAddingPerson(false)
+      setNewPersonName('')
+      showToast('success', `Person "${name}" added!`)
+    } catch (err) {
+      showToast('error', err.message || 'Failed to add person')
+    } finally {
+      setAddingPersonLoading(false)
+    }
+  }
+
+  function handleCancelAddPerson() {
+    setAddingPerson(false)
+    setNewPersonName('')
   }
 
   async function handleSubmit(e) {
@@ -1051,16 +1468,62 @@ function Advances({ showToast, showConfirm }) {
                 />
               </FormField>
               <FormField label="Person" error={errors.member_id}>
-                <select
-                  value={form.member_id}
-                  onChange={(e) => updateForm('member_id', e.target.value)}
-                  className={`input input-select ${errors.member_id ? 'input-error' : ''}`}
-                >
-                  <option value="">Select person</option>
-                  {members.map((m) => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </select>
+                {addingPerson ? (
+                  <div className="flex gap-2 items-start">
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        value={newPersonName}
+                        onChange={(e) => setNewPersonName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddPerson(); } }}
+                        placeholder="Enter person name"
+                        className={`input ${errors.member_id ? 'input-error' : ''}`}
+                        autoFocus
+                      />
+                    </div>
+                    <div className="flex gap-1 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleAddPerson}
+                        disabled={addingPersonLoading || !newPersonName.trim()}
+                        className="btn-primary !px-3 !py-2.5 !text-xs"
+                        title="Add"
+                      >
+                        {addingPersonLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelAddPerson}
+                        className="btn-secondary !px-3 !py-2.5 !text-xs"
+                        title="Cancel"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <select
+                      value={form.member_id}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        if (val === '__add__') {
+                          setAddingPerson(true)
+                          setNewPersonName('')
+                        } else {
+                          updateForm('member_id', val)
+                        }
+                      }}
+                      className={`input input-select ${errors.member_id ? 'input-error' : ''}`}
+                    >
+                      <option value="">Select person</option>
+                      {members.map((m) => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
+                      ))}
+                      <option value="__add__">➕ Add new person...</option>
+                    </select>
+                  </div>
+                )}
               </FormField>
               <FormField label="Amount (৳)" error={errors.amount}>
                 <input
@@ -1164,6 +1627,9 @@ function Contributions({ showToast, showConfirm }) {
   const [showForm, setShowForm] = useState(false)
   const [editingRecord, setEditingRecord] = useState(null)
   const isEditing = editingRecord !== null
+  const [addingPerson, setAddingPerson] = useState(false)
+  const [newPersonName, setNewPersonName] = useState('')
+  const [addingPersonLoading, setAddingPersonLoading] = useState(false)
 
   useEffect(() => { fetchData() }, [])
 
@@ -1188,8 +1654,27 @@ function Contributions({ showToast, showConfirm }) {
   function validateForm() {
     const newErrors = {}
     if (!form.member_id) newErrors.member_id = 'Please select a person'
-    if (!form.amount || Number(form.amount) <= 0) newErrors.amount = 'Enter a valid amount'
-    if (!form.reason?.trim()) newErrors.reason = 'Reason is required'
+    if (!form.amount) {
+      newErrors.amount = 'Amount is required'
+    } else if (isNaN(Number(form.amount)) || Number(form.amount) <= 0) {
+      newErrors.amount = 'Enter a valid positive amount'
+    } else if (Number(form.amount) > 999999.99) {
+      newErrors.amount = 'Amount cannot exceed ৳999,999.99'
+    } else if ((form.amount.toString().split('.')[1] || '').length > 2) {
+      newErrors.amount = 'Maximum 2 decimal places allowed'
+    }
+    if (!form.reason?.trim()) {
+      newErrors.reason = 'Reason is required'
+    } else if (form.reason.trim().length < 3) {
+      newErrors.reason = 'Reason must be at least 3 characters'
+    } else if (form.reason.trim().length > 200) {
+      newErrors.reason = 'Reason must be under 200 characters'
+    }
+    if (!form.contribution_date) {
+      newErrors.contribution_date = 'Date is required'
+    } else if (form.contribution_date > new Date().toISOString().split('T')[0]) {
+      newErrors.contribution_date = 'Date cannot be in the future'
+    }
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -1224,6 +1709,46 @@ function Contributions({ showToast, showConfirm }) {
     setForm(EMPTY_CONTRIB_FORM)
     setErrors({})
     setShowForm(false)
+  }
+
+  async function handleAddPerson() {
+    const name = newPersonName.trim()
+    if (!name) {
+      showToast('error', 'Person name is required')
+      return
+    }
+    if (name.length < 2) {
+      showToast('error', 'Person name must be at least 2 characters')
+      return
+    }
+    if (name.length > 100) {
+      showToast('error', 'Person name must be under 100 characters')
+      return
+    }
+    try {
+      setAddingPersonLoading(true)
+      const { data, error: insErr } = await supabase
+        .from('members')
+        .insert({ name })
+        .select()
+        .single()
+      if (insErr) throw insErr
+      const memRes = await supabase.from('members').select('*').neq('name', 'Abir').order('name')
+      if (!memRes.error) setMembers(memRes.data || [])
+      updateForm('member_id', data.id)
+      setAddingPerson(false)
+      setNewPersonName('')
+      showToast('success', `Person "${name}" added!`)
+    } catch (err) {
+      showToast('error', err.message || 'Failed to add person')
+    } finally {
+      setAddingPersonLoading(false)
+    }
+  }
+
+  function handleCancelAddPerson() {
+    setAddingPerson(false)
+    setNewPersonName('')
   }
 
   async function handleSubmit(e) {
@@ -1315,16 +1840,62 @@ function Contributions({ showToast, showConfirm }) {
                 />
               </FormField>
               <FormField label="Person" error={errors.member_id}>
-                <select
-                  value={form.member_id}
-                  onChange={(e) => updateForm('member_id', e.target.value)}
-                  className={`input input-select ${errors.member_id ? 'input-error' : ''}`}
-                >
-                  <option value="">Select person</option>
-                  {members.map((m) => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </select>
+                {addingPerson ? (
+                  <div className="flex gap-2 items-start">
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        value={newPersonName}
+                        onChange={(e) => setNewPersonName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddPerson(); } }}
+                        placeholder="Enter person name"
+                        className={`input ${errors.member_id ? 'input-error' : ''}`}
+                        autoFocus
+                      />
+                    </div>
+                    <div className="flex gap-1 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleAddPerson}
+                        disabled={addingPersonLoading || !newPersonName.trim()}
+                        className="btn-primary !px-3 !py-2.5 !text-xs"
+                        title="Add"
+                      >
+                        {addingPersonLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelAddPerson}
+                        className="btn-secondary !px-3 !py-2.5 !text-xs"
+                        title="Cancel"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <select
+                      value={form.member_id}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        if (val === '__add__') {
+                          setAddingPerson(true)
+                          setNewPersonName('')
+                        } else {
+                          updateForm('member_id', val)
+                        }
+                      }}
+                      className={`input input-select ${errors.member_id ? 'input-error' : ''}`}
+                    >
+                      <option value="">Select person</option>
+                      {members.map((m) => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
+                      ))}
+                      <option value="__add__">➕ Add new person...</option>
+                    </select>
+                  </div>
+                )}
               </FormField>
               <FormField label="Amount (৳)" error={errors.amount}>
                 <input
@@ -1393,11 +1964,21 @@ function Contributions({ showToast, showConfirm }) {
    SETTLEMENT
    ══════════════════════════════════════════════════ */
 
-function Settlement() {
+function Settlement({ showToast }) {
   const [balances, setBalances] = useState([])
   const [totalExpenses, setTotalExpenses] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [settled, setSettled] = useState(() => sessionStorage.getItem('settlement_done') === 'true')
+  const [settling, setSettling] = useState(false)
+  const [generatingPng, setGeneratingPng] = useState(false)
+  const [generatingPdf, setGeneratingPdf] = useState(false)
+  const [showPendingModal, setShowPendingModal] = useState(false)
+  const [allExpenses, setAllExpenses] = useState([])
+  const [allAdvances, setAllAdvances] = useState([])
+  const [allContributions, setAllContributions] = useState([])
+  const [allMembers, setAllMembers] = useState([])
+  const summaryRef = useRef(null)
 
   useEffect(() => { fetchData() }, [])
 
@@ -1405,19 +1986,115 @@ function Settlement() {
     try {
       setLoading(true)
       setError(null)
-      const [balRes, expRes] = await Promise.all([
+      const [balRes, expRes, advRes, conRes, memRes] = await Promise.all([
         supabase.from('v_balances').select('*'),
-        supabase.from('expenses').select('amount'),
+        supabase.from('expenses').select('*, expense_categories(name), paid_by:members(name)').order('expense_date', { ascending: false }),
+        supabase.from('advances').select('*, members(name)').order('payment_date', { ascending: false }),
+        supabase.from('contributions').select('*, members(name)').order('contribution_date', { ascending: false }),
+        supabase.from('members').select('*').order('name'),
       ])
       if (balRes.error) throw balRes.error
       if (expRes.error) throw expRes.error
+      if (advRes.error) throw advRes.error
+      if (conRes.error) throw conRes.error
+      if (memRes.error) throw memRes.error
       setBalances(balRes.data || [])
+      setAllExpenses(expRes.data || [])
+      setAllAdvances(advRes.data || [])
+      setAllContributions(conRes.data || [])
+      setAllMembers(memRes.data || [])
       setTotalExpenses((expRes.data || []).reduce((s, e) => s + Number(e.amount), 0))
     } catch (err) {
       console.error(err)
       setError(err.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  function handleMakeSettlement() {
+    // Compute pending items (people who still owe or need to get back)
+    const pending = []
+    others.forEach((b) => {
+      const bal = Number(b.balance)
+      if (bal > 0.01) pending.push({ member: b.member_name, amount: bal, type: 'owes' })
+      else if (bal < -0.01) pending.push({ member: b.member_name, amount: Math.abs(bal), type: 'getsBack' })
+    })
+
+    if (pending.length === 0) {
+      // All settled — proceed directly
+      setSettled(true)
+      sessionStorage.setItem('settlement_done', 'true')
+      showToast('success', 'Settlement completed! You can now download the summary.')
+    } else {
+      // Show pending modal with list of outstanding items
+      setShowPendingModal(true)
+    }
+  }
+
+  function proceedSettlement() {
+    setShowPendingModal(false)
+    setSettled(true)
+    sessionStorage.setItem('settlement_done', 'true')
+    showToast('success', 'Settlement completed! You can now download the summary.')
+  }
+
+  async function downloadAsImage() {
+    if (!summaryRef.current) return
+    try {
+      setGeneratingPng(true)
+      const canvas = await html2canvas(summaryRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false,
+      })
+      const link = document.createElement('a')
+      link.download = `tour-settlement-summary-${new Date().toISOString().split('T')[0]}.png`
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+      showToast('success', 'Summary downloaded as PNG!')
+    } catch (err) {
+      showToast('error', 'Failed to generate image: ' + err.message)
+    } finally {
+      setGeneratingPng(false)
+    }
+  }
+
+  async function downloadAsPdf() {
+    if (!summaryRef.current) return
+    try {
+      setGeneratingPdf(true)
+      const canvas = await html2canvas(summaryRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false,
+      })
+      const imgData = canvas.toDataURL('image/png')
+      const imgWidth = 190
+      const pageHeight = 297
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      let heightLeft = imgHeight
+      let position = 0
+
+      pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight)
+      heightLeft -= pageHeight
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight
+        pdf.addPage()
+        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight)
+        heightLeft -= pageHeight
+      }
+
+      pdf.save(`tour-settlement-summary-${new Date().toISOString().split('T')[0]}.pdf`)
+      showToast('success', 'Summary downloaded as PDF!')
+    } catch (err) {
+      showToast('error', 'Failed to generate PDF: ' + err.message)
+    } finally {
+      setGeneratingPdf(false)
     }
   }
 
@@ -1437,9 +2114,37 @@ function Settlement() {
     else if (bal < -0.01) instructions.push({ from: 'Abir', to: b.member_name, amount: Math.abs(bal), type: 'getsBack' })
   })
 
+  const settleDate = new Date().toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+
   return (
     <div className="space-y-5 sm:space-y-6">
-      <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">Settlement</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">Settlement</h2>
+        {!settled ? (
+          <button
+            onClick={handleMakeSettlement}
+            disabled={settling}
+            className="btn-primary px-4 py-2.5 text-xs sm:text-sm sm:px-5 sm:py-3"
+          >
+            {settling ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Settling...</>
+            ) : (
+              <><CheckCircle2 className="h-4 w-4" /> Make Settlement</>
+            )}
+          </button>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1 rounded-xl bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Settled
+            </span>
+          </div>
+        )}
+      </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4">
         <div className="card">
@@ -1467,6 +2172,187 @@ function Settlement() {
           <p className="mt-2 text-xs text-gray-500">Advances + Contributions + Direct payments</p>
         </div>
       </div>
+
+      {/* Settlement Summary Section - visible when settled */}
+      {settled && (
+        <>
+          {/* Download Buttons */}
+          <div className="flex gap-3">
+            <button
+              onClick={downloadAsImage}
+              disabled={generatingPng}
+              className="btn-primary flex-1"
+            >
+              {generatingPng ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              {generatingPng ? 'Generating...' : 'Download as PNG'}
+            </button>
+            <button
+              onClick={downloadAsPdf}
+              disabled={generatingPdf}
+              className="btn-secondary flex-1"
+            >
+              {generatingPdf ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="h-4 w-4" />
+              )}
+              {generatingPdf ? 'Generating...' : 'Download as PDF'}
+            </button>
+          </div>
+
+          {/* Printable Summary */}
+          <div
+            ref={summaryRef}
+            className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-8 shadow-sm"
+            style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
+          >
+            {/* Header */}
+            <div className="mb-6 border-b border-gray-200 pb-4 text-center">
+              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100">
+                <Wallet className="h-5 w-5 text-indigo-600" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">Tour Expense Summary</h3>
+              <p className="text-xs text-gray-500">Settled on {settleDate}</p>
+            </div>
+
+            {/* Summary Stats */}
+            <div className="mb-5 grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-indigo-50 p-3 text-center">
+                <p className="text-[10px] font-medium text-gray-500">Total Expenses</p>
+                <p className="text-base font-bold text-gray-900">৳{totalExpenses.toFixed(2)}</p>
+              </div>
+              <div className="rounded-xl bg-emerald-50 p-3 text-center">
+                <p className="text-[10px] font-medium text-gray-500">Per Person Share</p>
+                <p className="text-base font-bold text-gray-900">৳{perPersonShare.toFixed(2)}</p>
+              </div>
+            </div>
+
+            {/* All Expenses */}
+            <div className="mb-5">
+              <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-gray-900">
+                <Receipt className="h-3.5 w-3.5 text-indigo-500" />
+                Expenses ({allExpenses.length})
+              </h4>
+              <div className="space-y-1">
+                {allExpenses.length === 0 && <p className="text-xs text-gray-400">No expenses recorded</p>}
+                {allExpenses.map((exp) => (
+                  <div key={exp.id} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-xs">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 truncate">{exp.description}</p>
+                      <p className="text-gray-500">{exp.expense_date} · {exp.paid_by?.name} · {exp.expense_categories?.name}</p>
+                    </div>
+                    <span className="ml-2 font-semibold text-gray-900">৳{Number(exp.amount).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* All Advances */}
+            <div className="mb-5">
+              <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-gray-900">
+                <Banknote className="h-3.5 w-3.5 text-emerald-500" />
+                Advances ({allAdvances.length})
+              </h4>
+              <div className="space-y-1">
+                {allAdvances.length === 0 && <p className="text-xs text-gray-400">No advances recorded</p>}
+                {allAdvances.map((adv) => (
+                  <div key={adv.id} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-xs">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900">{adv.members?.name}</p>
+                      <p className="text-gray-500">{adv.payment_date} · {adv.method}{adv.notes ? ` · ${adv.notes}` : ''}</p>
+                    </div>
+                    <span className="ml-2 font-semibold text-gray-900">৳{Number(adv.amount).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* All Contributions */}
+            <div className="mb-5">
+              <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-gray-900">
+                <HeartHandshake className="h-3.5 w-3.5 text-rose-500" />
+                Contributions ({allContributions.length})
+              </h4>
+              <div className="space-y-1">
+                {allContributions.length === 0 && <p className="text-xs text-gray-400">No contributions recorded</p>}
+                {allContributions.map((con) => (
+                  <div key={con.id} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-xs">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900">{con.members?.name}</p>
+                      <p className="text-gray-500">{con.contribution_date} · {con.reason}</p>
+                    </div>
+                    <span className="ml-2 font-semibold text-gray-900">৳{Number(con.amount).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Balance Overview */}
+            <div className="mb-5">
+              <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-gray-900">
+                <Scale className="h-3.5 w-3.5 text-gray-500" />
+                Balance Overview
+              </h4>
+              <div className="space-y-1">
+                {balances.map((b) => {
+                  const bal = Number(b.balance)
+                  const paid = Number(b.advance_paid) + Number(b.contribution_for_them) + Number(b.direct_paid)
+                  const owes = bal > 0.01
+                  const owed = bal < -0.01
+                  return (
+                    <div key={b.member_name} className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs ${
+                      owes ? 'bg-red-50' : owed ? 'bg-green-50' : 'bg-gray-50'
+                    }`}>
+                      <div className="flex-1">
+                        <span className="font-medium text-gray-900">{b.member_name}</span>
+                        {b.member_name === 'Abir' && <span className="ml-1.5 text-[10px] font-medium text-indigo-600">Manager</span>}
+                        <p className="text-gray-500">Share: ৳{Number(b.expense_share).toFixed(2)} · Paid: ৳{paid.toFixed(2)}</p>
+                      </div>
+                      <span className={`ml-2 font-semibold ${owes ? 'text-red-700' : owed ? 'text-green-700' : 'text-gray-700'}`}>
+                        {owes ? `Owes ৳${bal.toFixed(2)}` : owed ? `Gets back ৳${Math.abs(bal).toFixed(2)}` : 'Settled'}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Payment Instructions */}
+            <div className="mb-5">
+              <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-gray-900">
+                <MessageSquare className="h-3.5 w-3.5 text-indigo-500" />
+                Payment Instructions
+              </h4>
+              <div className="space-y-1.5">
+                {instructions.length > 0 ? instructions.map((inst, idx) => (
+                  <div key={idx} className={`rounded-lg border px-3 py-2.5 text-xs ${
+                    inst.type === 'owes'
+                      ? 'border-red-100 bg-red-50 text-red-800'
+                      : 'border-green-100 bg-green-50 text-green-800'
+                  }`}>
+                    <strong>{inst.from}</strong>{' '}
+                    {inst.type === 'owes' ? 'should pay' : 'should get back from'}{' '}
+                    <strong>{inst.to}</strong>: <strong>৳{inst.amount.toFixed(2)}</strong>
+                  </div>
+                )) : (
+                  <div className="rounded-lg bg-gray-50 px-3 py-2.5 text-xs text-gray-500">
+                    All settled up! No payments needed.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Members List */}
+            <div className="border-t border-gray-100 pt-3 text-center text-[10px] text-gray-400">
+              Tour members ({allMembers.length}): {allMembers.map((m) => m.name).join(', ')}
+            </div>
+          </div>
+        </>
+      )}
 
       <div className="card !p-0 overflow-hidden">
         <DesktopTable
@@ -1586,7 +2472,1153 @@ function Settlement() {
           )}
         </div>
       </div>
+
+      {/* Pending Settlement Modal */}
+      {showPendingModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setShowPendingModal(false)}
+          />
+          <div className="animate-scale-in relative z-10 w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl">
+            <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100">
+              <AlertTriangle className="h-6 w-6 text-amber-600" />
+            </div>
+            <h3 className="mb-2 text-lg font-semibold text-gray-900">Pending Settlements</h3>
+            <p className="mb-4 text-sm leading-relaxed text-gray-600">
+              The following amounts are still outstanding. Settlement can still proceed,
+              but these payments need to be collected or returned.
+            </p>
+            <div className="mb-6 space-y-2">
+              {instructions.map((inst, idx) => (
+                <div
+                  key={idx}
+                  className={`rounded-xl border px-4 py-3 text-sm ${
+                    inst.type === 'owes'
+                      ? 'border-red-100 bg-red-50'
+                      : 'border-green-100 bg-green-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${
+                        inst.type === 'owes' ? 'bg-red-100' : 'bg-green-100'
+                      }`}>
+                        {inst.type === 'owes' ? (
+                          <ArrowUpRight className="h-3.5 w-3.5 text-red-600" />
+                        ) : (
+                          <ArrowDownRight className="h-3.5 w-3.5 text-green-600" />
+                        )}
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-900">{inst.from}</span>
+                        <span className="text-gray-500"> {inst.type === 'owes' ? 'owes →' : '← gets back from'} </span>
+                        <span className="font-medium text-gray-900">{inst.to}</span>
+                      </div>
+                    </div>
+                    <span className={`ml-2 font-bold ${inst.type === 'owes' ? 'text-red-700' : 'text-green-700'}`}>
+                      ৳{inst.amount.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowPendingModal(false)}
+                className="btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={proceedSettlement}
+                className="btn-primary flex-1"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Settle Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  )
+}
+
+/* ══════════════════════════════════════════════════
+   HELP GUIDE
+   ══════════════════════════════════════════════════ */
+
+function HelpGuide() {
+  const sections = [
+    {
+      title: 'Overview',
+      icon: Wallet,
+      color: 'text-indigo-600',
+      bg: 'bg-indigo-100',
+      content: (
+        <div className="space-y-4 text-sm leading-relaxed text-gray-600">
+          <p>
+            The <strong className="text-gray-900">Tour Expense Tracker</strong> helps a group of friends on a trip
+            track all shared expenses and figure out who owes whom at the end. There are <strong className="text-gray-900">8 members</strong> on the tour,
+            and <strong className="text-gray-900">Abir</strong> acts as the tour manager — he pays for most group expenses
+            out of his own pocket and keeps a record of everything.
+          </p>
+          <p>
+            Other members can give money back to Abir in two ways:
+            <strong className="text-gray-900"> Advances</strong> (advance payments toward their share) and{' '}
+            <strong className="text-gray-900">Contributions</strong> (money Abir spent on their behalf for specific things).
+            The app tracks all of this and automatically calculates the net balance for each person.
+          </p>
+        </div>
+      ),
+    },
+    {
+      title: 'Dashboard',
+      icon: LayoutDashboard,
+      color: 'text-amber-600',
+      bg: 'bg-amber-100',
+      content: (
+        <div className="space-y-4 text-sm leading-relaxed text-gray-600">
+          <p>
+            The <strong className="text-gray-900">Dashboard</strong> is your central command center. It gives you a
+            bird's-eye view of everything happening with the group's finances.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[
+              { label: 'Stat Cards', desc: 'Total Expenses, Advances Received, Net Spending, and how many people owe money.' },
+              { label: "Today's Activity", desc: 'Shows how much was spent in expenses, advances, and contributions today.' },
+              { label: 'Latest Activity', desc: 'The 3 most recent transactions across all categories.' },
+              { label: 'Category Breakdown', desc: 'Bar chart showing how expenses are distributed by category.' },
+              { label: 'Recent Expenses', desc: 'The last 5 expenses recorded, with date and who paid.' },
+              { label: 'Balance Overview', desc: 'Shows each person\'s share vs what they\'ve paid so far.' },
+            ].map((item) => (
+              <div key={item.label} className="rounded-xl bg-gray-50 p-3">
+                <p className="mb-0.5 text-xs font-semibold text-gray-900">{item.label}</p>
+                <p className="text-xs text-gray-500">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+          <p className="flex items-center gap-2 rounded-xl bg-indigo-50 px-3 py-2.5 text-xs text-indigo-700">
+            <ArrowUpRight className="h-3.5 w-3.5 flex-shrink-0" />
+            Use the Quick Action buttons to instantly add an expense, advance, or contribution without leaving the Dashboard.
+          </p>
+        </div>
+      ),
+    },
+    {
+      title: 'Expenses',
+      icon: Receipt,
+      color: 'text-indigo-600',
+      bg: 'bg-indigo-100',
+      content: (
+        <div className="space-y-4 text-sm leading-relaxed text-gray-600">
+          <p>
+            The <strong className="text-gray-900">Expenses</strong> page is where you record every group purchase.
+            Each expense has a <strong className="text-gray-900">date</strong>,{' '}
+            <strong className="text-gray-900">category</strong> (like Food, House Rent, Travel),
+            a <strong className="text-gray-900">description</strong>, and the{' '}
+            <strong className="text-gray-900">person who paid</strong>.
+          </p>
+          <p className="flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2.5 text-xs">
+            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-100">
+              <Plus className="h-3 w-3 text-indigo-600" />
+            </span>
+            Tap <strong>Add Expense</strong> to open the form. You can also add new categories or people on the fly using the{' '}
+            <strong className="text-gray-900">➕ Add new...</strong> options in the dropdowns.
+          </p>
+          <p>
+            You can <strong className="text-gray-900">edit</strong> any expense by tapping the pencil icon, or{' '}
+            <strong className="text-gray-900">delete</strong> it with the trash icon (with confirmation).
+          </p>
+        </div>
+      ),
+    },
+    {
+      title: 'Advances',
+      icon: Banknote,
+      color: 'text-emerald-600',
+      bg: 'bg-emerald-100',
+      content: (
+        <div className="space-y-4 text-sm leading-relaxed text-gray-600">
+          <p>
+            <strong className="text-gray-900">Advances</strong> track money given directly to tour members.
+            These are payments that count toward a person's share of the total expenses.
+            For example, if someone receives ৳500 in cash as an advance, that reduces how much
+            they still owe to the group.
+          </p>
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2.5 text-xs text-emerald-800">
+            <p className="mb-1 font-semibold">Payment Methods:</p>
+            <p>Cash · bKash · Nagad · Bank Transfer</p>
+          </div>
+          <p>
+            Advances are subtracted from the member's expense share when calculating settlement.
+            The <strong className="text-gray-900">Method</strong> and{' '}
+            <strong className="text-gray-900">Notes</strong> fields help keep track of how and why the money was given.
+          </p>
+        </div>
+      ),
+    },
+    {
+      title: 'Contributions',
+      icon: HeartHandshake,
+      color: 'text-rose-600',
+      bg: 'bg-rose-100',
+      content: (
+        <div className="space-y-4 text-sm leading-relaxed text-gray-600">
+          <p>
+            <strong className="text-gray-900">Contributions</strong> are specific payments that{' '}
+            <strong className="text-gray-900">Abir</strong> made on behalf of another person.
+            For instance, if Abir buys a bus ticket for someone else, that gets recorded as a contribution
+            for that person.
+          </p>
+          <p className="flex items-center gap-2 rounded-xl bg-rose-50 px-3 py-2.5 text-xs text-rose-800">
+            <HeartHandshake className="h-3.5 w-3.5 flex-shrink-0" />
+            Unlike advances (which are direct cash given to the person), contributions are expenses
+            Abir paid for someone else's benefit that need to be repaid.
+          </p>
+          <p>
+            Each contribution has a <strong className="text-gray-900">reason</strong> field so you know
+            what it was for (e.g. "Paid for lunch", "Bus ticket").
+          </p>
+        </div>
+      ),
+    },
+    {
+      title: 'Settlement',
+      icon: Scale,
+      color: 'text-gray-600',
+      bg: 'bg-gray-100',
+      content: (
+        <div className="space-y-4 text-sm leading-relaxed text-gray-600">
+          <p>
+            The <strong className="text-gray-900">Settlement</strong> page is where everything comes together.
+            It shows the final financial picture and tells you exactly who needs to pay whom.
+          </p>
+          <div className="space-y-3">
+            <div className="rounded-xl bg-indigo-50 px-3 py-2.5 text-xs text-indigo-800">
+              <p className="mb-1 font-semibold">How it works:</p>
+              <ol className="ml-4 list-decimal space-y-1">
+                <li>Total expenses are divided equally among <strong>8 members</strong> → <strong>Per Person Share</strong></li>
+                <li>Each person's payments (Advances + Contributions + Direct) are totalled → <strong>Total Collected</strong></li>
+                <li>Balance = Their Share − What They Paid</li>
+                <li>If balance &gt; 0 → they owe Abir · If balance &lt; 0 → Abir owes them</li>
+              </ol>
+            </div>
+            <div className="rounded-xl border border-green-100 bg-green-50 px-3 py-2.5 text-xs text-green-800">
+              <p className="mb-1 font-semibold">Payment Instructions:</p>
+              <p>The page automatically generates clear instructions like "Rony should pay Abir: ৳1,250.00" so everyone knows exactly what to do.</p>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'How Everything Connects',
+      icon: MessageSquare,
+      color: 'text-purple-600',
+      bg: 'bg-purple-100',
+      content: (
+        <div className="space-y-4 text-sm leading-relaxed text-gray-600">
+          <div className="rounded-xl border border-purple-100 bg-purple-50 p-4">
+            <p className="mb-3 text-xs font-semibold text-purple-800">Data Flow Diagram</p>
+            <div className="flex flex-col items-center gap-1.5 text-xs">
+              <div className="rounded-lg bg-indigo-100 px-3 py-2 font-semibold text-indigo-700">📋 Expenses</div>
+              <ArrowDown className="h-3.5 w-3.5 text-gray-400" />
+              <div className="rounded-lg bg-amber-100 px-3 py-2 font-semibold text-amber-700">💰 Total Bill ÷ 8 People</div>
+              <div className="flex items-center gap-3">
+                <ArrowDown className="h-3.5 w-3.5 text-gray-400" />
+                <span className="text-[10px] text-gray-400">minus</span>
+                <ArrowDown className="h-3.5 w-3.5 text-gray-400" />
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-emerald-100 px-3 py-2 font-semibold text-emerald-700">💵 Advances</div>
+                <div className="rounded-lg bg-rose-100 px-3 py-2 font-semibold text-rose-700">🤝 Contributions</div>
+              </div>
+              <ArrowDown className="h-3.5 w-3.5 text-gray-400" />
+              <div className="rounded-lg bg-gray-100 px-4 py-2 font-semibold text-gray-700">⚖️ Net Balance</div>
+              <ArrowDown className="h-3.5 w-3.5 text-gray-400" />
+              <div className="rounded-lg bg-green-100 px-4 py-2 font-semibold text-green-700">✅ Payment Instructions</div>
+            </div>
+          </div>
+          <p>
+            The <strong className="text-gray-900">Dashboard</strong> pulls data from all sections to give you the full picture.
+            The <strong className="text-gray-900">v_balances</strong> database view automatically calculates
+            each person's share, what they've paid, and their net balance — keeping everything in sync.
+          </p>
+        </div>
+      ),
+    },
+    {
+      title: 'Quick Tips',
+      icon: CheckCircle2,
+      color: 'text-teal-600',
+      bg: 'bg-teal-100',
+      content: (
+        <div className="space-y-4 text-sm leading-relaxed text-gray-600">
+          <div className="grid gap-2">
+            {[
+              { icon: Plus, label: 'Quick Add', desc: 'Use the + FAB button (mobile) or Dashboard quick actions to add records without navigating away.' },
+              { icon: Pencil, label: 'Inline Edit', desc: 'Tap the pencil icon on any row to edit a record inline — no need to delete and re-enter.' },
+              { icon: User, label: 'Add People', desc: 'Select "➕ Add new person..." in any person dropdown to add a new member on the fly.' },
+              { icon: Package, label: 'Add Categories', desc: 'Select "➕ Add new category..." in the expense form to create a new category instantly.' },
+              { icon: Trash2, label: 'Safe Deletes', desc: 'All delete actions show a confirmation dialog, so you never accidentally remove data.' },
+              { icon: Bell, label: 'Toast Feedback', desc: 'Every action shows a success or error toast notification at the top of the screen.' },
+            ].map((tip) => {
+              const TipIcon = tip.icon
+              return (
+                <div key={tip.label} className="flex items-start gap-3 rounded-xl border border-gray-100 bg-gray-50/50 p-3">
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-white shadow-sm">
+                    <TipIcon className="h-4 w-4 text-indigo-500" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-900">{tip.label}</p>
+                    <p className="text-xs text-gray-500">{tip.desc}</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ),
+    },
+  ]
+
+  return (
+    <div className="space-y-5 sm:space-y-6">
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100">
+          <HelpCircle className="h-5 w-5 text-indigo-600" />
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">Help Guide</h2>
+          <p className="text-xs text-gray-500">Learn how the app works and how each section fits together</p>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {sections.map((section, idx) => {
+          const SectionIcon = section.icon
+          return (
+            <div
+              key={section.title}
+              className="animate-slide-up card !p-0 overflow-hidden"
+              style={{ animationDelay: `${idx * 60}ms` }}
+            >
+              <div className="flex items-center gap-3 border-b border-gray-100 bg-gray-50/50 px-4 py-3 sm:px-5">
+                <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${section.bg}`}>
+                  <SectionIcon className={`h-4 w-4 ${section.color}`} />
+                </div>
+                <h3 className="text-sm font-bold text-gray-900">{section.title}</h3>
+              </div>
+              <div className="px-4 py-4 sm:px-5">
+                {section.content}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="rounded-2xl border border-indigo-100 bg-gradient-to-b from-indigo-50 to-white px-5 py-5 text-center">
+        <Wallet className="mx-auto mb-2 h-6 w-6 text-indigo-500" />
+        <p className="text-sm font-semibold text-gray-900">Happy Tracking! 🎉</p>
+        <p className="mt-1 text-xs text-gray-500">
+          Record your expenses, track who paid what, and settle up at the end — all in one place.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/* ══════════════════════════════════════════════════
+   MODAL
+   ══════════════════════════════════════════════════ */
+
+function Modal({ open, onClose, title, children }) {
+  if (!open) return null
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-end justify-center sm:items-center sm:p-4">
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="animate-slide-up relative z-10 w-full rounded-2xl rounded-b-none border border-gray-200 bg-white shadow-2xl sm:max-w-lg sm:rounded-2xl max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white/95 backdrop-blur-sm px-5 py-4">
+          <h3 className="text-base font-semibold text-gray-900">{title}</h3>
+          <button onClick={onClose} className="btn-ghost flex h-8 w-8 items-center justify-center rounded-lg p-0" aria-label="Close">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="px-5 py-4">
+          {children}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ══════════════════════════════════════════════════
+   QUICK ADD EXPENSE MODAL (for Dashboard)
+   ══════════════════════════════════════════════════ */
+
+function QuickAddExpenseModal({ open, onClose, onSuccess, showToast }) {
+  const [categories, setCategories] = useState([])
+  const [members, setMembers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [form, setForm] = useState(EMPTY_EXPENSE_FORM)
+  const [errors, setErrors] = useState({})
+  const [submitting, setSubmitting] = useState(false)
+  const [addingPerson, setAddingPerson] = useState(false)
+  const [newPersonName, setNewPersonName] = useState('')
+  const [addingPersonLoading, setAddingPersonLoading] = useState(false)
+  const [addingCategory, setAddingCategory] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [addingCategoryLoading, setAddingCategoryLoading] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setForm(EMPTY_EXPENSE_FORM)
+      setErrors({})
+      setAddingPerson(false)
+      setNewPersonName('')
+      setAddingCategory(false)
+      setNewCategoryName('')
+      fetchDeps()
+    }
+  }, [open])
+
+  async function fetchDeps() {
+    try {
+      setLoading(true)
+      const [catRes, memRes] = await Promise.all([
+        supabase.from('expense_categories').select('*').order('name'),
+        supabase.from('members').select('*').order('name'),
+      ])
+      if (catRes.error) throw catRes.error
+      if (memRes.error) throw memRes.error
+      setCategories(catRes.data || [])
+      setMembers(memRes.data || [])
+    } catch (err) {
+      showToast('error', err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleAddPerson(name) {
+    try {
+      setAddingPersonLoading(true)
+      const { data, error: insErr } = await supabase
+        .from('members')
+        .insert({ name })
+        .select()
+        .single()
+      if (insErr) throw insErr
+      await fetchDeps()
+      updateField('paid_by', data.id)
+      setAddingPerson(false)
+      setNewPersonName('')
+      showToast('success', `Person "${name}" added!`)
+    } catch (err) {
+      showToast('error', err.message || 'Failed to add person')
+    } finally {
+      setAddingPersonLoading(false)
+    }
+  }
+
+  function handleCancelAddPerson() {
+    setAddingPerson(false)
+    setNewPersonName('')
+  }
+
+  async function handleAddCategory() {
+    const name = newCategoryName.trim()
+    if (!name) {
+      showToast('error', 'Category name is required')
+      return
+    }
+    if (name.length < 2) {
+      showToast('error', 'Category name must be at least 2 characters')
+      return
+    }
+    if (name.length > 100) {
+      showToast('error', 'Category name must be under 100 characters')
+      return
+    }
+    try {
+      setAddingCategoryLoading(true)
+      const { data, error: insErr } = await supabase
+        .from('expense_categories')
+        .insert({ name, icon: 'package' })
+        .select()
+        .single()
+      if (insErr) throw insErr
+      await fetchDeps()
+      updateField('category_id', data.id)
+      setAddingCategory(false)
+      setNewCategoryName('')
+      showToast('success', `Category "${name}" added!`)
+    } catch (err) {
+      showToast('error', err.message || 'Failed to add category')
+    } finally {
+      setAddingCategoryLoading(false)
+    }
+  }
+
+  function handleCancelAddCategory() {
+    setAddingCategory(false)
+    setNewCategoryName('')
+  }
+
+  function validate() {
+    const newErrors = {}
+    if (!form.category_id) newErrors.category_id = 'Please select a category'
+    if (!form.description?.trim()) {
+      newErrors.description = 'Description is required'
+    } else if (form.description.trim().length < 3) {
+      newErrors.description = 'Description must be at least 3 characters'
+    } else if (form.description.trim().length > 200) {
+      newErrors.description = 'Description must be under 200 characters'
+    }
+    if (!form.amount) {
+      newErrors.amount = 'Amount is required'
+    } else if (isNaN(Number(form.amount)) || Number(form.amount) <= 0) {
+      newErrors.amount = 'Enter a valid positive amount'
+    } else if (Number(form.amount) > 999999.99) {
+      newErrors.amount = 'Amount cannot exceed ৳999,999.99'
+    } else if ((form.amount.toString().split('.')[1] || '').length > 2) {
+      newErrors.amount = 'Maximum 2 decimal places allowed'
+    }
+    if (!form.paid_by) newErrors.paid_by = 'Please select who paid'
+    if (!form.expense_date) {
+      newErrors.expense_date = 'Date is required'
+    } else if (form.expense_date > new Date().toISOString().split('T')[0]) {
+      newErrors.expense_date = 'Date cannot be in the future'
+    }
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  function clearError(field) {
+    setErrors((prev) => { const n = { ...prev }; delete n[field]; return n })
+  }
+
+  function updateField(field, value) {
+    setForm({ ...form, [field]: value })
+    clearError(field)
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!validate()) return
+    try {
+      setSubmitting(true)
+      const { error: insErr } = await supabase.from('expenses').insert({
+        expense_date: form.expense_date,
+        category_id: form.category_id,
+        description: form.description.trim(),
+        amount: Number(form.amount),
+        paid_by: form.paid_by,
+      })
+      if (insErr) throw insErr
+      showToast('success', 'Expense added!')
+      onSuccess()
+      onClose()
+    } catch (err) {
+      showToast('error', err.message || 'Failed to add expense')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (!open) return null
+
+  return (
+    <Modal open={open} onClose={onClose} title="Add Expense">
+      {loading ? (
+        <div className="flex items-center justify-center py-10">
+          <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <FormField label="Date" error={errors.expense_date}>
+            <input type="date" value={form.expense_date} onChange={(e) => updateField('expense_date', e.target.value)} className={`input ${errors.expense_date ? 'input-error' : ''}`} />
+          </FormField>
+          <FormField label="Category" error={errors.category_id}>
+            {addingCategory ? (
+              <div className="flex gap-2 items-start">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddCategory(); } }}
+                    placeholder="Enter category name"
+                    className={`input ${errors.category_id ? 'input-error' : ''}`}
+                    autoFocus
+                  />
+                </div>
+                <div className="flex gap-1 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleAddCategory}
+                    disabled={addingCategoryLoading || !newCategoryName.trim()}
+                    className="btn-primary !px-3 !py-2.5 !text-xs"
+                    title="Add"
+                  >
+                    {addingCategoryLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCancelAddCategory}
+                    className="btn-secondary !px-3 !py-2.5 !text-xs"
+                    title="Cancel"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="relative">
+                <select
+                  value={form.category_id}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    if (val === '__add__') {
+                      setAddingCategory(true)
+                      setNewCategoryName('')
+                    } else {
+                      updateField('category_id', val)
+                    }
+                  }}
+                  className={`input input-select ${errors.category_id ? 'input-error' : ''}`}
+                >
+                  <option value="">Select category</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                  <option value="__add__">➕ Add new category...</option>
+                </select>
+              </div>
+            )}
+          </FormField>
+          <FormField label="Description" error={errors.description}>
+            <input type="text" value={form.description} onChange={(e) => updateField('description', e.target.value)} placeholder="e.g. Dinner" className={`input ${errors.description ? 'input-error' : ''}`} />
+          </FormField>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Amount (৳)" error={errors.amount}>
+              <input type="number" step="0.01" min="0" value={form.amount} onChange={(e) => updateField('amount', e.target.value)} placeholder="0.00" className={`input ${errors.amount ? 'input-error' : ''}`} />
+            </FormField>
+            <FormField label="Paid By" error={errors.paid_by}>
+              {addingPerson ? (
+                <div className="flex gap-2 items-start">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={newPersonName}
+                      onChange={(e) => setNewPersonName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddPerson(newPersonName.trim()); } }}
+                      placeholder="Enter person name"
+                      className={`input ${errors.paid_by ? 'input-error' : ''}`}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex gap-1 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleAddPerson(newPersonName.trim())}
+                      disabled={addingPersonLoading || !newPersonName.trim()}
+                      className="btn-primary !px-3 !py-2.5 !text-xs"
+                      title="Add"
+                    >
+                      {addingPersonLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelAddPerson}
+                      className="btn-secondary !px-3 !py-2.5 !text-xs"
+                      title="Cancel"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="relative">
+                  <select
+                    value={form.paid_by}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      if (val === '__add__') {
+                        setAddingPerson(true)
+                        setNewPersonName('')
+                      } else {
+                        updateField('paid_by', val)
+                      }
+                    }}
+                    className={`input input-select ${errors.paid_by ? 'input-error' : ''}`}
+                  >
+                    <option value="">Select person</option>
+                    {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    <option value="__add__">➕ Add new person...</option>
+                  </select>
+                </div>
+              )}
+            </FormField>
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+            <SubmitButton loading={submitting} icon={Plus}>Add Expense</SubmitButton>
+          </div>
+        </form>
+      )}
+    </Modal>
+  )
+}
+
+/* ══════════════════════════════════════════════════
+   QUICK ADD ADVANCE MODAL (for Dashboard)
+   ══════════════════════════════════════════════════ */
+
+function QuickAddAdvanceModal({ open, onClose, onSuccess, showToast }) {
+  const [members, setMembers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [form, setForm] = useState(EMPTY_ADVANCE_FORM)
+  const [errors, setErrors] = useState({})
+  const [submitting, setSubmitting] = useState(false)
+  const [addingPerson, setAddingPerson] = useState(false)
+  const [newPersonName, setNewPersonName] = useState('')
+  const [addingPersonLoading, setAddingPersonLoading] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setForm(EMPTY_ADVANCE_FORM)
+      setErrors({})
+      setAddingPerson(false)
+      setNewPersonName('')
+      fetchMembers()
+    }
+  }, [open])
+
+  async function fetchMembers() {
+    try {
+      setLoading(true)
+      const { data, error } = await supabase.from('members').select('*').neq('name', 'Abir').order('name')
+      if (error) throw error
+      setMembers(data || [])
+    } catch (err) {
+      showToast('error', err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleAddPerson(name) {
+    if (!name) {
+      showToast('error', 'Person name is required')
+      return
+    }
+    if (name.length < 2) {
+      showToast('error', 'Person name must be at least 2 characters')
+      return
+    }
+    if (name.length > 100) {
+      showToast('error', 'Person name must be under 100 characters')
+      return
+    }
+    try {
+      setAddingPersonLoading(true)
+      const { data, error: insErr } = await supabase
+        .from('members')
+        .insert({ name })
+        .select()
+        .single()
+      if (insErr) throw insErr
+      await fetchMembers()
+      updateField('member_id', data.id)
+      setAddingPerson(false)
+      setNewPersonName('')
+      showToast('success', `Person "${name}" added!`)
+    } catch (err) {
+      showToast('error', err.message || 'Failed to add person')
+    } finally {
+      setAddingPersonLoading(false)
+    }
+  }
+
+  function handleCancelAddPerson() {
+    setAddingPerson(false)
+    setNewPersonName('')
+  }
+
+  function validate() {
+    const newErrors = {}
+    if (!form.member_id) newErrors.member_id = 'Please select a person'
+    if (!form.amount) {
+      newErrors.amount = 'Amount is required'
+    } else if (isNaN(Number(form.amount)) || Number(form.amount) <= 0) {
+      newErrors.amount = 'Enter a valid positive amount'
+    } else if (Number(form.amount) > 999999.99) {
+      newErrors.amount = 'Amount cannot exceed ৳999,999.99'
+    } else if ((form.amount.toString().split('.')[1] || '').length > 2) {
+      newErrors.amount = 'Maximum 2 decimal places allowed'
+    }
+    if (!form.payment_date) {
+      newErrors.payment_date = 'Date is required'
+    } else if (form.payment_date > new Date().toISOString().split('T')[0]) {
+      newErrors.payment_date = 'Date cannot be in the future'
+    }
+    if (form.notes?.length > 500) {
+      newErrors.notes = 'Notes must be under 500 characters'
+    }
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  function clearError(field) {
+    setErrors((prev) => { const n = { ...prev }; delete n[field]; return n })
+  }
+
+  function updateField(field, value) {
+    setForm({ ...form, [field]: value })
+    clearError(field)
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!validate()) return
+    try {
+      setSubmitting(true)
+      const { error: insErr } = await supabase.from('advances').insert({
+        payment_date: form.payment_date,
+        member_id: form.member_id,
+        amount: Number(form.amount),
+        method: form.method,
+        notes: form.notes || null,
+      })
+      if (insErr) throw insErr
+      showToast('success', 'Advance added!')
+      onSuccess()
+      onClose()
+    } catch (err) {
+      showToast('error', err.message || 'Failed to add advance')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (!open) return null
+
+  return (
+    <Modal open={open} onClose={onClose} title="Add Advance Payment">
+      {loading ? (
+        <div className="flex items-center justify-center py-10">
+          <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Date" error={errors.payment_date}>
+              <input type="date" value={form.payment_date} onChange={(e) => updateField('payment_date', e.target.value)} className={`input ${errors.payment_date ? 'input-error' : ''}`} />
+            </FormField>
+            <FormField label="Person" error={errors.member_id}>
+              {addingPerson ? (
+                <div className="flex gap-2 items-start">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={newPersonName}
+                      onChange={(e) => setNewPersonName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddPerson(newPersonName.trim()); } }}
+                      placeholder="Enter person name"
+                      className={`input ${errors.member_id ? 'input-error' : ''}`}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex gap-1 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleAddPerson(newPersonName.trim())}
+                      disabled={addingPersonLoading || !newPersonName.trim()}
+                      className="btn-primary !px-3 !py-2.5 !text-xs"
+                      title="Add"
+                    >
+                      {addingPersonLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelAddPerson}
+                      className="btn-secondary !px-3 !py-2.5 !text-xs"
+                      title="Cancel"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="relative">
+                  <select
+                    value={form.member_id}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      if (val === '__add__') {
+                        setAddingPerson(true)
+                        setNewPersonName('')
+                      } else {
+                        updateField('member_id', val)
+                      }
+                    }}
+                    className={`input input-select ${errors.member_id ? 'input-error' : ''}`}
+                  >
+                    <option value="">Select person</option>
+                    {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    <option value="__add__">➕ Add new person...</option>
+                  </select>
+                </div>
+              )}
+            </FormField>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Amount (৳)" error={errors.amount}>
+              <input type="number" step="0.01" min="0" value={form.amount} onChange={(e) => updateField('amount', e.target.value)} placeholder="0.00" className={`input ${errors.amount ? 'input-error' : ''}`} />
+            </FormField>
+            <FormField label="Method">
+              <select value={form.method} onChange={(e) => updateField('method', e.target.value)} className="input input-select">
+                {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </FormField>
+          </div>
+          <FormField label="Notes (optional)">
+            <input type="text" value={form.notes} onChange={(e) => updateField('notes', e.target.value)} placeholder="Any notes..." className="input" />
+          </FormField>
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+            <SubmitButton loading={submitting} icon={Plus}>Add Advance</SubmitButton>
+          </div>
+        </form>
+      )}
+    </Modal>
+  )
+}
+
+/* ══════════════════════════════════════════════════
+   QUICK ADD CONTRIBUTION MODAL (for Dashboard)
+   ══════════════════════════════════════════════════ */
+
+function QuickAddContributionModal({ open, onClose, onSuccess, showToast }) {
+  const [members, setMembers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [form, setForm] = useState(EMPTY_CONTRIB_FORM)
+  const [errors, setErrors] = useState({})
+  const [submitting, setSubmitting] = useState(false)
+  const [addingPerson, setAddingPerson] = useState(false)
+  const [newPersonName, setNewPersonName] = useState('')
+  const [addingPersonLoading, setAddingPersonLoading] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setForm(EMPTY_CONTRIB_FORM)
+      setErrors({})
+      setAddingPerson(false)
+      setNewPersonName('')
+      fetchMembers()
+    }
+  }, [open])
+
+  async function fetchMembers() {
+    try {
+      setLoading(true)
+      const { data, error } = await supabase.from('members').select('*').neq('name', 'Abir').order('name')
+      if (error) throw error
+      setMembers(data || [])
+    } catch (err) {
+      showToast('error', err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleAddPerson(name) {
+    if (!name) {
+      showToast('error', 'Person name is required')
+      return
+    }
+    if (name.length < 2) {
+      showToast('error', 'Person name must be at least 2 characters')
+      return
+    }
+    if (name.length > 100) {
+      showToast('error', 'Person name must be under 100 characters')
+      return
+    }
+    try {
+      setAddingPersonLoading(true)
+      const { data, error: insErr } = await supabase
+        .from('members')
+        .insert({ name })
+        .select()
+        .single()
+      if (insErr) throw insErr
+      await fetchMembers()
+      updateField('member_id', data.id)
+      setAddingPerson(false)
+      setNewPersonName('')
+      showToast('success', `Person "${name}" added!`)
+    } catch (err) {
+      showToast('error', err.message || 'Failed to add person')
+    } finally {
+      setAddingPersonLoading(false)
+    }
+  }
+
+  function handleCancelAddPerson() {
+    setAddingPerson(false)
+    setNewPersonName('')
+  }
+
+  function validate() {
+    const newErrors = {}
+    if (!form.member_id) newErrors.member_id = 'Please select a person'
+    if (!form.amount) {
+      newErrors.amount = 'Amount is required'
+    } else if (isNaN(Number(form.amount)) || Number(form.amount) <= 0) {
+      newErrors.amount = 'Enter a valid positive amount'
+    } else if (Number(form.amount) > 999999.99) {
+      newErrors.amount = 'Amount cannot exceed ৳999,999.99'
+    } else if ((form.amount.toString().split('.')[1] || '').length > 2) {
+      newErrors.amount = 'Maximum 2 decimal places allowed'
+    }
+    if (!form.reason?.trim()) {
+      newErrors.reason = 'Reason is required'
+    } else if (form.reason.trim().length < 3) {
+      newErrors.reason = 'Reason must be at least 3 characters'
+    } else if (form.reason.trim().length > 200) {
+      newErrors.reason = 'Reason must be under 200 characters'
+    }
+    if (!form.contribution_date) {
+      newErrors.contribution_date = 'Date is required'
+    } else if (form.contribution_date > new Date().toISOString().split('T')[0]) {
+      newErrors.contribution_date = 'Date cannot be in the future'
+    }
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  function clearError(field) {
+    setErrors((prev) => { const n = { ...prev }; delete n[field]; return n })
+  }
+
+  function updateField(field, value) {
+    setForm({ ...form, [field]: value })
+    clearError(field)
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!validate()) return
+    try {
+      setSubmitting(true)
+      const { error: insErr } = await supabase.from('contributions').insert({
+        contribution_date: form.contribution_date,
+        member_id: form.member_id,
+        amount: Number(form.amount),
+        reason: form.reason.trim(),
+      })
+      if (insErr) throw insErr
+      showToast('success', 'Contribution added!')
+      onSuccess()
+      onClose()
+    } catch (err) {
+      showToast('error', err.message || 'Failed to add contribution')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (!open) return null
+
+  return (
+    <Modal open={open} onClose={onClose} title="Add Contribution">
+      {loading ? (
+        <div className="flex items-center justify-center py-10">
+          <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Date" error={errors.contribution_date}>
+              <input type="date" value={form.contribution_date} onChange={(e) => updateField('contribution_date', e.target.value)} className={`input ${errors.contribution_date ? 'input-error' : ''}`} />
+            </FormField>
+            <FormField label="Person" error={errors.member_id}>
+              {addingPerson ? (
+                <div className="flex gap-2 items-start">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={newPersonName}
+                      onChange={(e) => setNewPersonName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddPerson(newPersonName.trim()); } }}
+                      placeholder="Enter person name"
+                      className={`input ${errors.member_id ? 'input-error' : ''}`}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex gap-1 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleAddPerson(newPersonName.trim())}
+                      disabled={addingPersonLoading || !newPersonName.trim()}
+                      className="btn-primary !px-3 !py-2.5 !text-xs"
+                      title="Add"
+                    >
+                      {addingPersonLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelAddPerson}
+                      className="btn-secondary !px-3 !py-2.5 !text-xs"
+                      title="Cancel"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="relative">
+                  <select
+                    value={form.member_id}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      if (val === '__add__') {
+                        setAddingPerson(true)
+                        setNewPersonName('')
+                      } else {
+                        updateField('member_id', val)
+                      }
+                    }}
+                    className={`input input-select ${errors.member_id ? 'input-error' : ''}`}
+                  >
+                    <option value="">Select person</option>
+                    {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    <option value="__add__">➕ Add new person...</option>
+                  </select>
+                </div>
+              )}
+            </FormField>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Amount (৳)" error={errors.amount}>
+              <input type="number" step="0.01" min="0" value={form.amount} onChange={(e) => updateField('amount', e.target.value)} placeholder="0.00" className={`input ${errors.amount ? 'input-error' : ''}`} />
+            </FormField>
+            <FormField label="Reason" error={errors.reason}>
+              <input type="text" value={form.reason} onChange={(e) => updateField('reason', e.target.value)} placeholder="e.g. Paid bus ticket" className={`input ${errors.reason ? 'input-error' : ''}`} />
+            </FormField>
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+            <SubmitButton loading={submitting} icon={Plus}>Add Contribution</SubmitButton>
+          </div>
+        </form>
+      )}
+    </Modal>
   )
 }
 
