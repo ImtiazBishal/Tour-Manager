@@ -428,7 +428,7 @@ function Toast({ toast, onDismiss }) {
           {isSuccess ? (
             <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
           ) : (
-            <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400 dark:text-red-300" />
+            <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
           )}
         </div>
         <p className="flex-1 text-sm font-medium">{toast.message}</p>
@@ -633,8 +633,8 @@ function Dashboard({ showToast, dataVersion }) {
       <div className="grid grid-cols-3 gap-3 sm:gap-4">
         <div className="animate-slide-up rounded-2xl border border-indigo-100 bg-gradient-to-b from-indigo-50/50 to-white p-3 sm:p-4 dark:border-indigo-800/50 dark:from-indigo-950/30 dark:to-gray-900" style={{ animationDelay: '0ms' }}>
           <div className="flex items-center gap-2 mb-1.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900/50 sm:h-8 sm:w-8 dark:bg-indigo-900/50">
-              <Receipt className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 sm:h-4 sm:w-4 dark:text-indigo-400" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900/50 sm:h-8 sm:w-8">
+              <Receipt className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 sm:h-4 sm:w-4" />
             </div>
             <span className="text-[11px] font-medium text-gray-500 sm:text-xs dark:text-gray-400">Today's Expenses</span>
           </div>
@@ -671,9 +671,9 @@ function Dashboard({ showToast, dataVersion }) {
         <div className="card animate-slide-up" style={{ animationDelay: '150ms' }}>
           <div className="mb-3 flex items-center gap-2">
             <Clock className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-100">Latest Activity</h3>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Latest Activity</h3>
           </div>
-          <div className="divide-y divide-gray-100 dark:divide-gray-700/50 dark:divide-gray-700/60">
+          <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
             {lastTransactions.map((t, idx) => {
               const typeConfig = {
                 expense: { icon: Receipt, bg: 'bg-indigo-100', color: 'text-indigo-600', label: 'Expense', darkBg: 'dark:bg-indigo-900/50', darkColor: 'dark:text-indigo-400' },
@@ -701,7 +701,7 @@ function Dashboard({ showToast, dataVersion }) {
                       </span>
                     </p>
                   </div>
-                  <span className="ml-2 text-sm font-bold text-gray-900 dark:text-gray-100 dark:text-gray-100">
+                  <span className="ml-2 text-sm font-bold text-gray-900 dark:text-gray-100">
                     {formatAmount(amt)}
                   </span>
                 </div>
@@ -713,7 +713,7 @@ function Dashboard({ showToast, dataVersion }) {
 
       <div className="grid gap-5 lg:grid-cols-2 sm:gap-6">
         <div className="card animate-slide-up">
-          <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-100">Category Breakdown</h3>
+          <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-gray-100">Category Breakdown</h3>
           <div className="space-y-3">
             {categoryBreakdown.map((cat) => {
               const maxAmt = categoryBreakdown[0]?.amount || 1
@@ -744,7 +744,7 @@ function Dashboard({ showToast, dataVersion }) {
         </div>
 
         <div className="card animate-slide-up">
-          <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-100">Recent Expenses</h3>
+          <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-gray-100">Recent Expenses</h3>
           <div className="space-y-2">
             {recentExpenses.map((exp, idx) => (
               <div
@@ -769,7 +769,7 @@ function Dashboard({ showToast, dataVersion }) {
       </div>
 
       <div className="card animate-slide-up">
-        <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-100">Balance Overview</h3>
+        <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-gray-100">Balance Overview</h3>
         <DesktopTable
           headers={['Person', 'Their Share', 'They Paid', 'Balance']}
           rows={balances.filter((b) => b.member_role !== 'manager')}
@@ -797,7 +797,7 @@ function Dashboard({ showToast, dataVersion }) {
             const bal = Number(b.balance)
             const paid = Number(b.advance_paid) + Number(b.contribution_for_them) + Number(b.direct_paid)
             return (
-              <div key={b.member_name} className="rounded-xl border border-gray-100 bg-gray-50/50 dark:bg-gray-800/30 p-3 dark:border-gray-700/60 dark:bg-gray-800/50">
+              <div key={b.member_name} className="rounded-xl border border-gray-100 bg-gray-50/50 dark:bg-gray-800/50 p-3 dark:border-gray-700/60">
                 <div className="mb-2 flex items-center justify-between">
                   <span className="font-medium text-gray-900 text-sm dark:text-gray-100">{b.member_name}</span>
                   <BalanceBadge balance={bal} formatAmount={formatAmount} />
