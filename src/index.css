@@ -70,8 +70,13 @@
   }
 
   .card {
-    @apply rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm
-           dark:border-gray-700/80 dark:bg-gray-900 dark:shadow-gray-900/50;
+    @apply rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-md p-5 shadow-sm
+           dark:border-gray-700/50 dark:bg-gray-900/70 dark:shadow-gray-900/50 dark:backdrop-blur-md;
+  }
+
+  .card-strong {
+    @apply rounded-2xl border border-gray-200/80 bg-white/95 backdrop-blur-sm p-5 shadow-sm
+           dark:border-gray-700/80 dark:bg-gray-900/90 dark:backdrop-blur-sm;
   }
 
   .card-header {
@@ -84,6 +89,80 @@
 }
 
 @layer utilities {
+  .bg-grid {
+    background-image: 
+      linear-gradient(to right, rgba(99, 102, 241, 0.03) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  .dark .bg-grid,
+  .bg-grid.dark {
+    background-image:
+      linear-gradient(to right, rgba(99, 102, 241, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(99, 102, 241, 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  .bg-dots {
+    background-image: radial-gradient(circle, rgba(99, 102, 241, 0.08) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .dark .bg-dots,
+  .bg-dots.dark {
+    background-image: radial-gradient(circle, rgba(99, 102, 241, 0.12) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .bg-glow {
+    position: relative;
+  }
+
+  .bg-glow::before {
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(ellipse at 20% 50%, rgba(99, 102, 241, 0.03) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(236, 72, 153, 0.02) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(59, 130, 246, 0.02) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .dark .bg-glow::before,
+  .bg-glow.dark::before {
+    background: radial-gradient(ellipse at 20% 50%, rgba(99, 102, 241, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(236, 72, 153, 0.04) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(59, 130, 246, 0.04) 0%, transparent 50%);
+  }
+
+  .bg-pattern {
+    position: relative;
+  }
+
+  .bg-pattern::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: 
+      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(99, 102, 241, 0.03) 39px, rgba(99, 102, 241, 0.03) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(99, 102, 241, 0.03) 39px, rgba(99, 102, 241, 0.03) 40px);
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .dark .bg-pattern::before,
+  .bg-pattern.dark::before {
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(99, 102, 241, 0.05) 39px, rgba(99, 102, 241, 0.05) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(99, 102, 241, 0.05) 39px, rgba(99, 102, 241, 0.05) 40px);
+  }
+
+
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;

@@ -40,6 +40,8 @@ import {
   Bell,
   Download,
   Settings,
+  Moon,
+  Sun,
 } from 'lucide-react'
 import { SettingsProvider, useSettings } from './lib/settings'
 import Members from './components/Members'
@@ -122,7 +124,7 @@ export default function App() {
 
   return (
     <SettingsProvider>
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100/50 pb-16 sm:pb-0 dark:from-gray-950 dark:to-gray-900">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100/50 pb-16 sm:pb-0 dark:from-gray-950 dark:to-gray-900 bg-pattern">
       {/* Navbar */}
       <header className="sticky top-0 z-30 border-b border-gray-200/80 bg-white/95 shadow-sm backdrop-blur-lg dark:border-gray-700/80 dark:bg-gray-900/95">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
@@ -165,35 +167,7 @@ export default function App() {
           </nav>
         </div>
         {/* Mobile dropdown menu */}
-        {menuOpen && (
-          <nav className="animate-slide-up border-t border-gray-100 bg-white px-4 pb-3 pt-2 sm:hidden dark:border-gray-700 dark:bg-gray-900">
-            {TABS.map((tab) => {
-              const Icon = tab.icon
-              return (
-                <button
-                  key={tab.key}
-                  onClick={() => {
-                    setActiveTab(tab.key)
-                    setMenuOpen(false)
-                  }}
-                  className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
-                    activeTab === tab.key
-                      ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'
-                      : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800'
-                  }`}
-                >
-                  <Icon className={`h-5 w-5 ${activeTab === tab.key ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500'}`} />
-                  {tab.label}
-                  {activeTab === tab.key && (
-                    <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 dark:bg-indigo-500">
-                      <CheckCircle2 className="h-3 w-3 text-white" />
-                    </span>
-                  )}
-                </button>
-              )
-            })}
-          </nav>
-        )}
+        {menuOpen && <MobileNav activeTab={activeTab} onTabChange={setActiveTab} onClose={() => setMenuOpen(false)} />}
       </header>
 
       {/* Mobile Bottom Tab Bar */}
@@ -407,6 +381,74 @@ export default function App() {
 }
 
 /* ══════════════════════════════════════════════════
+   MOBILE NAV (with dark mode toggle)
+   ══════════════════════════════════════════════════ */
+
+function MobileNav({ activeTab, onTabChange, onClose }) {
+  const { darkMode, setDarkMode } = useSettings()
+
+  return (
+    <nav className="animate-slide-up border-t border-gray-100 bg-white px-4 pb-3 pt-2 sm:hidden dark:border-gray-700 dark:bg-gray-900">
+      {TABS.map((tab) => {
+        const Icon = tab.icon
+        return (
+          <button
+            key={tab.key}
+            onClick={() => {
+              onTabChange(tab.key)
+              onClose()
+            }}
+            className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
+              activeTab === tab.key
+                ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'
+                : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800'
+            }`}
+          >
+            <Icon className={`h-5 w-5 ${activeTab === tab.key ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500'}`} />
+            {tab.label}
+            {activeTab === tab.key && (
+              <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 dark:bg-indigo-500">
+                <CheckCircle2 className="h-3 w-3 text-white" />
+              </span>
+            )}
+          </button>
+        )
+      })}
+
+      {/* Dark mode toggle */}
+      <div className="mt-2 border-t border-gray-100 pt-3 dark:border-gray-700">
+        <button
+          onClick={() => setDarkMode(!darkMode)}
+          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800"
+        >
+          <div className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors ${
+            darkMode
+              ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400'
+              : 'bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400'
+          }`}>
+            {darkMode ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+          </div>
+          <span className="flex-1 text-left">{darkMode ? 'Dark Mode' : 'Light Mode'}</span>
+          <div className={`relative h-5 w-9 rounded-full transition-colors ${
+            darkMode ? 'bg-indigo-600' : 'bg-gray-300'
+          }`}>
+            <span className={`absolute left-0.5 top-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-white shadow-sm transition-transform ${
+              darkMode ? 'translate-x-4' : 'translate-x-0'
+            }`}>
+              {darkMode ? (
+                <Moon className="h-2.5 w-2.5 text-indigo-600" />
+              ) : (
+                <Sun className="h-2.5 w-2.5 text-amber-500" />
+              )}
+            </span>
+          </div>
+        </button>
+      </div>
+    </nav>
+  )
+}
+
+/* ══════════════════════════════════════════════════
    TOAST NOTIFICATION
    ══════════════════════════════════════════════════ */
 
@@ -455,7 +497,7 @@ function ConfirmDialog({ message, onConfirm, onCancel }) {
         className="fixed inset-0 bg-black/40 backdrop-blur-sm dark:bg-black/60"
         onClick={onCancel}
       />
-      <div className="animate-scale-in relative z-10 w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-700 dark:bg-gray-900">
+      <div className="animate-scale-in relative z-10 w-full max-w-sm rounded-2xl border border-gray-200/80 bg-white/95 backdrop-blur-md p-6 shadow-2xl dark:border-gray-700/80 dark:bg-gray-900/95 dark:backdrop-blur-md">
         <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 dark:bg-red-900/50">
           <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
         </div>
@@ -752,7 +794,7 @@ function Dashboard({ showToast, dataVersion }) {
                 className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-3 transition-colors hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-gray-900">{exp.description}</p>
+                  <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">{exp.description}</p>
                   <p className="flex items-center gap-1 text-xs text-gray-500">
                     <Calendar className="h-3 w-3" />
                     {exp.expense_date} · {exp.paid_by?.name || 'Unknown'}
@@ -2329,7 +2371,7 @@ function Settlement({ showToast, dataVersion }) {
               <Wallet className="h-4 w-4 text-emerald-600 sm:h-5 sm:w-5 dark:text-emerald-400" />
             </div>
           </div>
-          <p className="mt-2 text-xs text-gray-500">Advances + Contributions + Direct payments</p>
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Advances + Contributions + Direct payments</p>
         </div>
       </div>
 
@@ -2491,7 +2533,7 @@ function Settlement({ showToast, dataVersion }) {
                   <div key={idx} className={`rounded-lg border px-3 py-2.5 text-xs ${
                     inst.type === 'owes'
                       ? 'border-red-100 bg-red-50 text-red-800'
-                      : 'border-green-100 bg-green-50 text-green-800'
+                      : 'border-green-100 bg-green-50 dark:border-green-900/50 dark:bg-green-950/30 text-green-800'
                   }`}>
                     <strong>{inst.from}</strong>{' '}
                     {inst.type === 'owes' ? 'should pay' : 'should get back from'}{' '}
@@ -2551,7 +2593,7 @@ function Settlement({ showToast, dataVersion }) {
             const owed = bal < -0.01
             return (
               <div key={b.member_name} className={`rounded-xl border p-3 ${
-                owes ? 'border-red-100 bg-red-50/50' : owed ? 'border-green-100 bg-green-50/50' : 'border-gray-100'
+                owes ? 'border-red-100 bg-red-50/50' : owed ? 'border-green-100 bg-green-50 dark:border-green-900/50 dark:bg-green-950/30/50' : 'border-gray-100'
               }`}>
                 <div className="mb-2 flex items-center justify-between">
                   <span className="flex items-center gap-1.5 font-medium text-gray-900 text-sm">
@@ -2586,13 +2628,13 @@ function Settlement({ showToast, dataVersion }) {
               className={`animate-slide-up rounded-xl border px-4 py-3.5 text-sm leading-relaxed ${
                 inst.type === 'owes'
                   ? 'border-red-100 bg-red-50 text-red-800'
-                  : 'border-green-100 bg-green-50 text-green-800'
+                  : 'border-green-100 bg-green-50 dark:border-green-900/50 dark:bg-green-950/30 text-green-800'
               }`}
               style={{ animationDelay: `${idx * 80}ms` }}
             >
               <div className="flex items-center gap-3">
                 <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${
-                  inst.type === 'owes' ? 'bg-red-100' : 'bg-green-100'
+                  inst.type === 'owes' ? 'bg-red-100 dark:bg-red-900/50' : 'bg-green-100 dark:bg-green-900/50'
                 }`}>
                   {inst.type === 'owes' ? (
                     <ArrowUpRight className="h-4 w-4 text-red-600 dark:text-red-400" />
@@ -2637,15 +2679,15 @@ function Settlement({ showToast, dataVersion }) {
       {showPendingModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm dark:bg-black/60"
             onClick={() => setShowPendingModal(false)}
           />
-          <div className="animate-scale-in relative z-10 w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl">
-            <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100">
-              <AlertTriangle className="h-6 w-6 text-amber-600" />
+          <div className="animate-scale-in relative z-10 w-full max-w-md rounded-2xl border border-gray-200 bg-white/95 backdrop-blur-md p-6 shadow-2xl dark:border-gray-700/80 dark:bg-gray-900/95 dark:backdrop-blur-md">
+            <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-900/50">
+              <AlertTriangle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
             </div>
-            <h3 className="mb-2 text-lg font-semibold text-gray-900">Pending Settlements</h3>
-            <p className="mb-4 text-sm leading-relaxed text-gray-600">
+            <h3 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100">Pending Settlements</h3>
+            <p className="mb-4 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
               The following amounts are still outstanding. Settlement can still proceed,
               but these payments need to be collected or returned.
             </p>
@@ -2656,18 +2698,18 @@ function Settlement({ showToast, dataVersion }) {
                   className={`rounded-xl border px-4 py-3 text-sm ${
                     inst.type === 'owes'
                       ? 'border-red-100 bg-red-50'
-                      : 'border-green-100 bg-green-50'
+                      : 'border-green-100 bg-green-50 dark:border-green-900/50 dark:bg-green-950/30'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${
-                        inst.type === 'owes' ? 'bg-red-100' : 'bg-green-100'
+                        inst.type === 'owes' ? 'bg-red-100 dark:bg-red-900/50' : 'bg-green-100 dark:bg-green-900/50'
                       }`}>
                         {inst.type === 'owes' ? (
-                          <ArrowUpRight className="h-3.5 w-3.5 text-red-600" />
+                          <ArrowUpRight className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
                         ) : (
-                          <ArrowDownRight className="h-3.5 w-3.5 text-green-600" />
+                          <ArrowDownRight className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
                         )}
                       </div>
                       <div>
@@ -2865,7 +2907,7 @@ function HelpGuide() {
                 <li>If balance &gt; 0 → they owe Abir · If balance &lt; 0 → Abir owes them</li>
               </ol>
             </div>
-            <div className="rounded-xl border border-green-100 bg-green-50 px-3 py-2.5 text-xs text-green-800">
+            <div className="rounded-xl border border-green-100 bg-green-50 dark:border-green-900/50 dark:bg-green-950/30 px-3 py-2.5 text-xs text-green-800">
               <p className="mb-1 font-semibold">Payment Instructions:</p>
               <p>The page automatically generates clear instructions like "Rony should pay Abir: ৳1,250.00" so everyone knows exactly what to do.</p>
             </div>
@@ -2999,10 +3041,10 @@ function Modal({ open, onClose, title, children }) {
 
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center sm:items-center sm:p-4">
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="animate-slide-up relative z-10 w-full rounded-2xl rounded-b-none border border-gray-200 bg-white shadow-2xl sm:max-w-lg sm:rounded-2xl max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white/95 backdrop-blur-sm px-5 py-4">
-          <h3 className="text-base font-semibold text-gray-900">{title}</h3>
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm dark:bg-black/60" onClick={onClose} />
+      <div className="animate-slide-up relative z-10 w-full rounded-2xl rounded-b-none border border-gray-200 bg-white/95 backdrop-blur-md shadow-2xl sm:max-w-lg sm:rounded-2xl max-h-[90vh] overflow-y-auto dark:border-gray-700/80 dark:bg-gray-900/95 dark:backdrop-blur-md">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white/95 backdrop-blur-sm px-5 py-4 dark:border-gray-700/50 dark:bg-gray-900/95">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
           <button onClick={onClose} className="btn-ghost flex h-8 w-8 items-center justify-center rounded-lg p-0" aria-label="Close">
             <X className="h-4 w-4" />
           </button>
@@ -3815,7 +3857,7 @@ function MobileDataRow({ title, subtitle, meta, amount, badge, onEdit, onDelete,
     <div className="flex items-center gap-3 rounded-xl bg-white p-3.5 shadow-sm ring-1 ring-gray-100 dark:bg-gray-900 dark:ring-gray-700/50 transition-all hover:shadow-md active:scale-[0.99]">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-medium text-gray-900">{title}</p>
+          <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">{title}</p>
           {badge && (
             <span className="badge flex-shrink-0 bg-indigo-100 text-indigo-700">{badge}</span>
           )}

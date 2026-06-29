@@ -132,7 +132,7 @@ export default function ExpenseSharingEditor({ members, managerId, expenseAmount
                     value={s.fixedAmount || ''}
                     onChange={(e) => setFixedAmount(m.id, e.target.value)}
                     placeholder="Amount"
-                    className="w-24 rounded-lg border border-amber-200 bg-white px-2 py-1 text-xs text-right focus:border-amber-400 focus:outline-none"
+                    className="w-24 rounded-lg border border-amber-200 bg-white px-2 py-1 text-xs text-right focus:border-amber-400 focus:outline-none dark:border-amber-700 dark:bg-gray-700 dark:text-gray-200 dark:focus:border-amber-500"
                   />
                 </div>
               )}
