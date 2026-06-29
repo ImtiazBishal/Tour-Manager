@@ -39,7 +39,18 @@ import {
   HelpCircle,
   Bell,
   Download,
+  Settings,
 } from 'lucide-react'
+import { SettingsProvider, useSettings } from './lib/settings'
+import Members from './components/Members'
+import SettingsPage from './components/Settings'
+import BulkActionBar from './components/BulkActionBar'
+import AssignMemberModal from './components/AssignMemberModal'
+import { downloadCSV } from './lib/csv'
+import { useBulkActions } from './hooks/useBulkActions'
+import { useAddPerson } from './hooks/useAddPerson'
+import { useAddCategory } from './hooks/useAddCategory'
+import ExpenseSharingEditor from './components/ExpenseSharingEditor'
 
 /* ─── Constants ─── */
 
@@ -59,7 +70,11 @@ const TABS = [
   { key: 'advances', label: 'Advances', icon: Banknote },
   { key: 'contributions', label: 'Contributions', icon: HeartHandshake },
   { key: 'settlement', label: 'Settlement', icon: Scale },
+  { key: 'members', label: 'Members', icon: Users },
+  { key: 'settings', label: 'Settings', icon: Settings },
 ]
+
+const BOTTOM_TABS = TABS.filter((t) => t.key !== 'members' && t.key !== 'settings')
 
 /* ══════════════════════════════════════════════════
    APP
@@ -102,9 +117,10 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100/50 pb-16 sm:pb-0">
+    <SettingsProvider>
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100/50 pb-16 sm:pb-0 dark:from-gray-950 dark:to-gray-900">
       {/* Navbar */}
-      <header className="sticky top-0 z-30 border-b border-gray-200/80 bg-white/95 shadow-sm backdrop-blur-lg">
+      <header className="sticky top-0 z-30 border-b border-gray-200/80 bg-white/95 shadow-sm backdrop-blur-lg dark:border-gray-700/80 dark:bg-gray-900/95">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
           <div className="flex items-center gap-3">
             <button
@@ -118,7 +134,7 @@ export default function App() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 shadow-sm">
                 <Wallet className="h-4 w-4 text-white" />
               </div>
-              <h1 className="text-base font-bold text-gray-900 sm:text-lg">Tour Expense Tracker</h1>
+              <h1 className="text-base font-bold text-gray-900 sm:text-lg dark:text-gray-100">Tour Expense Tracker</h1>
             </div>
           </div>
           <nav className="hidden items-center gap-1 sm:flex">
@@ -130,14 +146,14 @@ export default function App() {
                   onClick={() => setActiveTab(tab.key)}
                   className={`relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-200 ${
                     activeTab === tab.key
-                      ? 'bg-indigo-50 text-indigo-700'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                      ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100'
                   }`}
                 >
                   <Icon className="h-4 w-4" />
                   {tab.label}
                   {activeTab === tab.key && (
-                    <span className="absolute -bottom-[9px] left-1/2 h-0.5 w-6 -translate-x-1/2 rounded-full bg-indigo-600" />
+                    <span className="absolute -bottom-[9px] left-1/2 h-0.5 w-6 -translate-x-1/2 rounded-full bg-indigo-600 dark:bg-indigo-400" />
                   )}
                 </button>
               )
@@ -146,7 +162,7 @@ export default function App() {
         </div>
         {/* Mobile dropdown menu */}
         {menuOpen && (
-          <nav className="animate-slide-up border-t border-gray-100 bg-white px-4 pb-3 pt-2 sm:hidden">
+          <nav className="animate-slide-up border-t border-gray-100 bg-white px-4 pb-3 pt-2 sm:hidden dark:border-gray-700 dark:bg-gray-900">
             {TABS.map((tab) => {
               const Icon = tab.icon
               return (
@@ -158,14 +174,14 @@ export default function App() {
                   }}
                   className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
                     activeTab === tab.key
-                      ? 'bg-indigo-50 text-indigo-700'
-                      : 'text-gray-600 hover:bg-gray-50'
+                      ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'
+                      : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800'
                   }`}
                 >
-                  <Icon className={`h-5 w-5 ${activeTab === tab.key ? 'text-indigo-600' : 'text-gray-400'}`} />
+                  <Icon className={`h-5 w-5 ${activeTab === tab.key ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500'}`} />
                   {tab.label}
                   {activeTab === tab.key && (
-                    <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600">
+                    <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 dark:bg-indigo-500">
                       <CheckCircle2 className="h-3 w-3 text-white" />
                     </span>
                   )}
@@ -177,9 +193,9 @@ export default function App() {
       </header>
 
       {/* Mobile Bottom Tab Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-gray-200/80 bg-white/95 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] backdrop-blur-lg sm:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-gray-200/80 bg-white/95 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] backdrop-blur-lg sm:hidden dark:border-gray-700/80 dark:bg-gray-900/95">
         <div className="flex items-center justify-around px-2 py-1">
-          {TABS.map((tab) => {
+          {BOTTOM_TABS.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.key
             return (
@@ -187,21 +203,21 @@ export default function App() {
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 className={`relative flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-xl px-2 py-2 transition-all duration-200 ${
-                  isActive ? 'text-indigo-600' : 'text-gray-400 hover:text-gray-600'
+                  isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300'
                 }`}
               >
                 <div className={`relative rounded-xl p-1.5 transition-all duration-200 ${
-                  isActive ? 'bg-indigo-50' : ''
+                  isActive ? 'bg-indigo-50 dark:bg-indigo-900/40' : ''
                 }`}>
                   <Icon className={`h-5 w-5 transition-all duration-200 ${
                     isActive ? 'scale-110' : ''
                   }`} />
                   {isActive && (
-                    <span className="absolute -bottom-0.5 left-1/2 h-0.5 w-4 -translate-x-1/2 rounded-full bg-indigo-600" />
+                    <span className="absolute -bottom-0.5 left-1/2 h-0.5 w-4 -translate-x-1/2 rounded-full bg-indigo-600 dark:bg-indigo-400" />
                   )}
                 </div>
                 <span className={`text-[10px] font-medium leading-tight transition-all duration-200 ${
-                  isActive ? 'font-semibold text-indigo-600' : ''
+                  isActive ? 'font-semibold text-indigo-600 dark:text-indigo-400' : ''
                 }`}>
                   {tab.label}
                 </span>
@@ -212,14 +228,36 @@ export default function App() {
       </nav>
 
       {/* Desktop Left Sidebar */}
-      <div className="fixed left-0 top-0 z-40 hidden h-full flex-col items-center border-r border-gray-200/80 bg-white/95 shadow-sm backdrop-blur-lg sm:flex sm:w-14 sm:pt-[3.5rem] sm:pb-4">
+      <div className="fixed left-0 top-0 z-40 hidden h-full flex-col items-center border-r border-gray-200/80 bg-white/95 shadow-sm backdrop-blur-lg sm:flex sm:w-14 sm:pt-[3.5rem] sm:pb-4 dark:border-gray-700/80 dark:bg-gray-900/95">
         <div className="flex flex-1 flex-col items-center gap-2 pt-3">
+          <button
+            onClick={() => setActiveTab('members')}
+            className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 ${
+              activeTab === 'members'
+                ? 'bg-indigo-100 text-indigo-600 shadow-sm dark:bg-indigo-900/50 dark:text-indigo-400'
+                : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300'
+            }`}
+            title="Members"
+          >
+            <Users className="h-5 w-5" />
+          </button>
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 ${
+              activeTab === 'settings'
+                ? 'bg-indigo-100 text-indigo-600 shadow-sm dark:bg-indigo-900/50 dark:text-indigo-400'
+                : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300'
+            }`}
+            title="Settings"
+          >
+            <Settings className="h-5 w-5" />
+          </button>
           <button
             onClick={() => setActiveTab('help')}
             className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 ${
               activeTab === 'help'
-                ? 'bg-indigo-100 text-indigo-600 shadow-sm'
-                : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                ? 'bg-indigo-100 text-indigo-600 shadow-sm dark:bg-indigo-900/50 dark:text-indigo-400'
+                : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300'
             }`}
             title="Help Guide"
           >
@@ -254,6 +292,12 @@ export default function App() {
           {activeTab === 'help' && (
             <HelpGuide />
           )}
+          {activeTab === 'members' && (
+            <Members showToast={showToast} showConfirm={showConfirm} />
+          )}
+          {activeTab === 'settings' && (
+            <SettingsPage showToast={showToast} showConfirm={showConfirm} />
+          )}
         </div>
       </main>
 
@@ -279,7 +323,7 @@ export default function App() {
         {/* Backdrop when FAB is open */}
         {fabOpen && (
           <div
-            className="fixed inset-0 z-40 bg-black/20"
+            className="fixed inset-0 z-40 bg-black/20 dark:bg-black/50"
             onClick={() => setFabOpen(false)}
           />
         )}
@@ -308,7 +352,7 @@ export default function App() {
                   className="animate-slide-up flex items-center gap-3"
                   style={{ animationDelay: `${idx * 60}ms` }}
                 >
-                  <span className="rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-lg ring-1 ring-gray-200">
+                  <span className="rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-lg ring-1 ring-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600">
                     {item.label}
                   </span>
                   <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${item.bg} text-white shadow-xl ring-4 ${item.ring}`}>
@@ -325,8 +369,8 @@ export default function App() {
           onClick={() => setFabOpen(!fabOpen)}
           className={`fixed bottom-20 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-xl transition-all duration-300 ${
             fabOpen
-              ? 'bg-gray-700 rotate-45 scale-110 shadow-gray-700/30'
-              : 'bg-indigo-600 shadow-indigo-500/40 hover:shadow-indigo-500/60 hover:scale-105 active:scale-95'
+              ? 'bg-gray-700 rotate-45 scale-110 shadow-gray-700/30 dark:bg-gray-600'
+              : 'bg-indigo-600 shadow-indigo-500/40 hover:shadow-indigo-500/60 hover:scale-105 active:scale-95 dark:bg-indigo-500'
           }`}
           aria-label={fabOpen ? 'Close menu' : 'Quick actions'}
         >
@@ -354,6 +398,7 @@ export default function App() {
         showToast={showToast}
       />
     </div>
+    </SettingsProvider>
   )
 }
 
@@ -369,17 +414,17 @@ function Toast({ toast, onDismiss }) {
       <div
         className={`animate-slide-up flex items-center gap-3 rounded-2xl border px-4 py-3 shadow-xl backdrop-blur-lg ${
           isSuccess
-            ? 'border-emerald-200 bg-emerald-50/95 text-emerald-800'
-            : 'border-red-200 bg-red-50/95 text-red-800'
+            ? 'border-emerald-200 bg-emerald-50/95 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-900/40 dark:text-emerald-200'
+            : 'border-red-200 bg-red-50/95 text-red-800 dark:border-red-800/60 dark:bg-red-900/40 dark:text-red-200'
         }`}
       >
         <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl ${
-          isSuccess ? 'bg-emerald-100' : 'bg-red-100'
+          isSuccess ? 'bg-emerald-100 dark:bg-emerald-800/60' : 'bg-red-100 dark:bg-red-800/60'
         }`}>
           {isSuccess ? (
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
           ) : (
-            <AlertCircle className="h-4 w-4 text-red-600" />
+            <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-300" />
           )}
         </div>
         <p className="flex-1 text-sm font-medium">{toast.message}</p>
@@ -403,15 +448,15 @@ function ConfirmDialog({ message, onConfirm, onCancel }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm dark:bg-black/60"
         onClick={onCancel}
       />
-      <div className="animate-scale-in relative z-10 w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl">
-        <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100">
-          <AlertTriangle className="h-6 w-6 text-red-600" />
+      <div className="animate-scale-in relative z-10 w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-700 dark:bg-gray-900">
+        <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 dark:bg-red-900/50">
+          <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
         </div>
-        <h3 className="mb-2 text-lg font-semibold text-gray-900">Confirm Delete</h3>
-        <p className="mb-6 text-sm leading-relaxed text-gray-600">{message}</p>
+        <h3 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100">Confirm Delete</h3>
+        <p className="mb-6 text-sm leading-relaxed text-gray-600 dark:text-gray-400">{message}</p>
         <div className="flex gap-3">
           <button onClick={onCancel} className="btn-secondary flex-1">
             Cancel
@@ -431,6 +476,7 @@ function ConfirmDialog({ message, onConfirm, onCancel }) {
    ══════════════════════════════════════════════════ */
 
 function Dashboard({ showToast }) {
+  const { formatAmount } = useSettings()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [stats, setStats] = useState({
@@ -478,7 +524,7 @@ function Dashboard({ showToast }) {
       const totalExpenses = (expenses || []).reduce((s, e) => s + Number(e.amount), 0)
       const totalAdvances = (advances || []).reduce((s, a) => s + Number(a.amount), 0)
       const peopleOwing = (balanceData || []).filter(
-        (b) => b.member_name !== 'Abir' && Number(b.balance) > 0
+        (b) => b.member_role !== 'manager' && Number(b.balance) > 0
       ).length
 
       setStats({ totalExpenses, totalAdvances, netSpending: totalExpenses - totalAdvances, peopleOwing })
@@ -536,16 +582,16 @@ function Dashboard({ showToast }) {
   if (error) return <ErrorBox msg={error} />
 
   const cards = [
-    { label: 'Total Expenses', value: `৳${stats.totalExpenses.toFixed(2)}`, icon: Receipt, color: 'text-indigo-600', bg: 'bg-indigo-100' },
-    { label: 'Advances Received', value: `৳${stats.totalAdvances.toFixed(2)}`, icon: Banknote, color: 'text-emerald-600', bg: 'bg-emerald-100' },
-    { label: 'Net Spending', value: `৳${stats.netSpending.toFixed(2)}`, icon: TrendingDown, color: 'text-orange-600', bg: 'bg-orange-100' },
+    { label: 'Total Expenses', value: formatAmount(stats.totalExpenses), icon: Receipt, color: 'text-indigo-600', bg: 'bg-indigo-100' },
+    { label: 'Advances Received', value: formatAmount(stats.totalAdvances), icon: Banknote, color: 'text-emerald-600', bg: 'bg-emerald-100' },
+    { label: 'Net Spending', value: formatAmount(stats.netSpending), icon: TrendingDown, color: 'text-orange-600', bg: 'bg-orange-100' },
     { label: 'People Who Owe', value: String(stats.peopleOwing), icon: Users, color: 'text-rose-600', bg: 'bg-rose-100' },
   ]
 
   return (
     <div className="space-y-5 sm:space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">Dashboard</h2>
+        <h2 className="text-xl font-bold text-gray-900 sm:text-2xl dark:text-gray-100">Dashboard</h2>
         <button
           onClick={fetchDashboardData}
           className="btn-ghost text-xs sm:text-sm"
@@ -567,8 +613,8 @@ function Dashboard({ showToast }) {
             >
               <div className="flex items-start justify-between">
                 <div className="space-y-1">
-                  <p className="text-[11px] font-medium text-gray-500 sm:text-xs">{c.label}</p>
-                  <p className="text-lg font-bold text-gray-900 sm:text-xl">{c.value}</p>
+                  <p className="text-[11px] font-medium text-gray-500 sm:text-xs dark:text-gray-400">{c.label}</p>
+                  <p className="text-lg font-bold text-gray-900 sm:text-xl dark:text-gray-100">{c.value}</p>
                 </div>
                 <div className={`rounded-xl ${c.bg} p-2.5`}>
                   <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${c.color}`} />
@@ -581,37 +627,37 @@ function Dashboard({ showToast }) {
 
       {/* Today's Activity Summary */}
       <div className="grid grid-cols-3 gap-3 sm:gap-4">
-        <div className="animate-slide-up rounded-2xl border border-indigo-100 bg-gradient-to-b from-indigo-50/50 to-white p-3 sm:p-4" style={{ animationDelay: '0ms' }}>
+        <div className="animate-slide-up rounded-2xl border border-indigo-100 bg-gradient-to-b from-indigo-50/50 to-white p-3 sm:p-4 dark:border-indigo-800/50 dark:from-indigo-950/30 dark:to-gray-900" style={{ animationDelay: '0ms' }}>
           <div className="flex items-center gap-2 mb-1.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 sm:h-8 sm:w-8">
-              <Receipt className="h-3.5 w-3.5 text-indigo-600 sm:h-4 sm:w-4" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 sm:h-8 sm:w-8 dark:bg-indigo-900/50">
+              <Receipt className="h-3.5 w-3.5 text-indigo-600 sm:h-4 sm:w-4 dark:text-indigo-400" />
             </div>
-            <span className="text-[11px] font-medium text-gray-500 sm:text-xs">Today's Expenses</span>
+            <span className="text-[11px] font-medium text-gray-500 sm:text-xs dark:text-gray-400">Today's Expenses</span>
           </div>
-          <p className="text-base font-bold text-gray-900 sm:text-lg">
-            {todayStats.expenses > 0 ? `৳${todayStats.expenses.toFixed(2)}` : '—'}
+          <p className="text-base font-bold text-gray-900 sm:text-lg dark:text-gray-100">
+            {todayStats.expenses > 0 ? `${formatAmount(todayStats.expenses)}` : '—'}
           </p>
         </div>
-        <div className="animate-slide-up rounded-2xl border border-emerald-100 bg-gradient-to-b from-emerald-50/50 to-white p-3 sm:p-4" style={{ animationDelay: '60ms' }}>
+        <div className="animate-slide-up rounded-2xl border border-emerald-100 bg-gradient-to-b from-emerald-50/50 to-white p-3 sm:p-4 dark:border-emerald-800/50 dark:from-emerald-950/30 dark:to-gray-900" style={{ animationDelay: '60ms' }}>
           <div className="flex items-center gap-2 mb-1.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 sm:h-8 sm:w-8">
-              <Banknote className="h-3.5 w-3.5 text-emerald-600 sm:h-4 sm:w-4" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 sm:h-8 sm:w-8 dark:bg-emerald-900/50">
+              <Banknote className="h-3.5 w-3.5 text-emerald-600 sm:h-4 sm:w-4 dark:text-emerald-400" />
             </div>
-            <span className="text-[11px] font-medium text-gray-500 sm:text-xs">Today's Advances</span>
+            <span className="text-[11px] font-medium text-gray-500 sm:text-xs dark:text-gray-400">Today's Advances</span>
           </div>
-          <p className="text-base font-bold text-gray-900 sm:text-lg">
-            {todayStats.advances > 0 ? `৳${todayStats.advances.toFixed(2)}` : '—'}
+          <p className="text-base font-bold text-gray-900 sm:text-lg dark:text-gray-100">
+            {todayStats.advances > 0 ? `${formatAmount(todayStats.advances)}` : '—'}
           </p>
         </div>
-        <div className="animate-slide-up rounded-2xl border border-rose-100 bg-gradient-to-b from-rose-50/50 to-white p-3 sm:p-4" style={{ animationDelay: '120ms' }}>
+        <div className="animate-slide-up rounded-2xl border border-rose-100 bg-gradient-to-b from-rose-50/50 to-white p-3 sm:p-4 dark:border-rose-800/50 dark:from-rose-950/30 dark:to-gray-900" style={{ animationDelay: '120ms' }}>
           <div className="flex items-center gap-2 mb-1.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-100 sm:h-8 sm:w-8">
-              <HeartHandshake className="h-3.5 w-3.5 text-rose-600 sm:h-4 sm:w-4" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-100 sm:h-8 sm:w-8 dark:bg-rose-900/50">
+              <HeartHandshake className="h-3.5 w-3.5 text-rose-600 sm:h-4 sm:w-4 dark:text-rose-400" />
             </div>
-            <span className="text-[11px] font-medium text-gray-500 sm:text-xs">Today's Contribs</span>
+            <span className="text-[11px] font-medium text-gray-500 sm:text-xs dark:text-gray-400">Today's Contribs</span>
           </div>
-          <p className="text-base font-bold text-gray-900 sm:text-lg">
-            {todayStats.contributions > 0 ? `৳${todayStats.contributions.toFixed(2)}` : '—'}
+          <p className="text-base font-bold text-gray-900 sm:text-lg dark:text-gray-100">
+            {todayStats.contributions > 0 ? `${formatAmount(todayStats.contributions)}` : '—'}
           </p>
         </div>
       </div>
@@ -620,29 +666,29 @@ function Dashboard({ showToast }) {
       {lastTransactions.length > 0 && (
         <div className="card animate-slide-up" style={{ animationDelay: '150ms' }}>
           <div className="mb-3 flex items-center gap-2">
-            <Clock className="h-4 w-4 text-indigo-500" />
-            <h3 className="text-sm font-semibold text-gray-900">Latest Activity</h3>
+            <Clock className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Latest Activity</h3>
           </div>
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
             {lastTransactions.map((t, idx) => {
               const typeConfig = {
-                expense: { icon: Receipt, bg: 'bg-indigo-100', color: 'text-indigo-600', label: 'Expense' },
-                advance: { icon: Banknote, bg: 'bg-emerald-100', color: 'text-emerald-600', label: 'Advance' },
-                contribution: { icon: HeartHandshake, bg: 'bg-rose-100', color: 'text-rose-600', label: 'Contribution' },
+                expense: { icon: Receipt, bg: 'bg-indigo-100', color: 'text-indigo-600', label: 'Expense', darkBg: 'dark:bg-indigo-900/50', darkColor: 'dark:text-indigo-400' },
+                advance: { icon: Banknote, bg: 'bg-emerald-100', color: 'text-emerald-600', label: 'Advance', darkBg: 'dark:bg-emerald-900/50', darkColor: 'dark:text-emerald-400' },
+                contribution: { icon: HeartHandshake, bg: 'bg-rose-100', color: 'text-rose-600', label: 'Contribution', darkBg: 'dark:bg-rose-900/50', darkColor: 'dark:text-rose-400' },
               }
               const cfg = typeConfig[t._type] || typeConfig.expense
               const Icon = cfg.icon
               const amt = Number(t.amount)
               return (
-                <div key={`${t._type}-${t.id}`} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                  <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${cfg.bg}`}>
-                    <Icon className={`h-4 w-4 ${cfg.color}`} />
+                <div key={`${t._type}-${t.id || idx}`} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                  <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${cfg.bg} ${cfg.darkBg}`}>
+                    <Icon className={`h-4 w-4 ${cfg.color} ${cfg.darkColor}`} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="truncate text-sm font-medium text-gray-900">
+                    <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
                       {t._type === 'expense' ? t._label : t._label}
                     </p>
-                    <p className="flex items-center gap-1 text-xs text-gray-500">
+                    <p className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
                       <Calendar className="h-3 w-3" />
                       {t._date}
                       {t._person && <span>· {t._person}</span>}
@@ -651,8 +697,8 @@ function Dashboard({ showToast }) {
                       </span>
                     </p>
                   </div>
-                  <span className="ml-2 text-sm font-bold text-gray-900">
-                    {t._type === 'contribution' ? '−' : '+'}৳{amt.toFixed(2)}
+                  <span className="ml-2 text-sm font-bold text-gray-900 dark:text-gray-100">
+                    {formatAmount(amt)}
                   </span>
                 </div>
               )
@@ -663,7 +709,7 @@ function Dashboard({ showToast }) {
 
       <div className="grid gap-5 lg:grid-cols-2 sm:gap-6">
         <div className="card animate-slide-up">
-          <h3 className="mb-4 text-sm font-semibold text-gray-900">Category Breakdown</h3>
+          <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-gray-100">Category Breakdown</h3>
           <div className="space-y-3">
             {categoryBreakdown.map((cat) => {
               const maxAmt = categoryBreakdown[0]?.amount || 1
@@ -672,13 +718,13 @@ function Dashboard({ showToast }) {
               return (
                 <div key={cat.name}>
                   <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="flex items-center gap-1.5 text-gray-700">
-                      {Icon ? <Icon className="h-4 w-4 text-indigo-500" /> : <Package className="h-4 w-4 text-gray-400" />}
+                    <span className="flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
+                      {Icon ? <Icon className="h-4 w-4 text-indigo-500 dark:text-indigo-400" /> : <Package className="h-4 w-4 text-gray-400 dark:text-gray-500" />}
                       <span className="text-xs sm:text-sm">{cat.name}</span>
                     </span>
-                    <span className="font-semibold text-gray-900 text-xs sm:text-sm">৳{cat.amount.toFixed(2)}</span>
+                    <span className="font-semibold text-gray-900 text-xs sm:text-sm dark:text-gray-100">{formatAmount(cat.amount)}</span>
                   </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">
                     <div
                       className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-indigo-400 transition-all duration-700 ease-out"
                       style={{ width: `${pct}%` }}
@@ -694,12 +740,12 @@ function Dashboard({ showToast }) {
         </div>
 
         <div className="card animate-slide-up">
-          <h3 className="mb-4 text-sm font-semibold text-gray-900">Recent Expenses</h3>
+          <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-gray-100">Recent Expenses</h3>
           <div className="space-y-2">
             {recentExpenses.map((exp, idx) => (
               <div
                 key={exp.id}
-                className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-3 transition-colors hover:bg-gray-100"
+                className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-3 transition-colors hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800"
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-gray-900">{exp.description}</p>
@@ -708,7 +754,7 @@ function Dashboard({ showToast }) {
                     {exp.expense_date} · {exp.paid_by?.name || 'Unknown'}
                   </p>
                 </div>
-                <span className="ml-3 text-sm font-bold text-gray-900">৳{Number(exp.amount).toFixed(2)}</span>
+                <span className="ml-3 text-sm font-bold text-gray-900">{formatAmount(exp.amount)}</span>
               </div>
             ))}
             {recentExpenses.length === 0 && (
@@ -719,19 +765,19 @@ function Dashboard({ showToast }) {
       </div>
 
       <div className="card animate-slide-up">
-        <h3 className="mb-4 text-sm font-semibold text-gray-900">Balance Overview</h3>
+        <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-gray-100">Balance Overview</h3>
         <DesktopTable
           headers={['Person', 'Their Share', 'They Paid', 'Balance']}
-          rows={balances.filter((b) => b.member_name !== 'Abir')}
+          rows={balances.filter((b) => b.member_role !== 'manager')}
           renderRow={(b) => {
             const bal = Number(b.balance)
             return (
               <>
-                <td className="whitespace-nowrap px-4 py-3 font-medium text-gray-900">{b.member_name}</td>
-                <td className="whitespace-nowrap px-4 py-3 text-gray-700">৳{Number(b.expense_share).toFixed(2)}</td>
-                <td className="whitespace-nowrap px-4 py-3 text-gray-700">৳{(Number(b.advance_paid) + Number(b.contribution_for_them) + Number(b.direct_paid)).toFixed(2)}</td>
+                <td className="whitespace-nowrap px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{b.member_name}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-gray-700 dark:text-gray-300">{formatAmount(b.expense_share)}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-gray-700 dark:text-gray-300">{formatAmount(Number(b.advance_paid) + Number(b.contribution_for_them) + Number(b.direct_paid))}</td>
                 <td className="whitespace-nowrap px-4 py-3">
-                  <BalanceBadge balance={bal} />
+                  <BalanceBadge balance={bal} formatAmount={formatAmount} />
                 </td>
               </>
             )
@@ -740,21 +786,21 @@ function Dashboard({ showToast }) {
         />
         {/* Mobile cards */}
         <div className="space-y-2 sm:hidden">
-          {balances.filter((b) => b.member_name !== 'Abir').length === 0 && (
+          {balances.filter((b) => b.member_role !== 'manager').length === 0 && (
             <p className="py-4 text-center text-sm text-gray-400">No data available</p>
           )}
-          {balances.filter((b) => b.member_name !== 'Abir').map((b) => {
+          {balances.filter((b) => b.member_role !== 'manager').map((b) => {
             const bal = Number(b.balance)
             const paid = Number(b.advance_paid) + Number(b.contribution_for_them) + Number(b.direct_paid)
             return (
-              <div key={b.member_name} className="rounded-xl border border-gray-100 bg-gray-50/50 p-3">
+              <div key={b.member_name} className="rounded-xl border border-gray-100 bg-gray-50/50 p-3 dark:border-gray-700/60 dark:bg-gray-800/50">
                 <div className="mb-2 flex items-center justify-between">
-                  <span className="font-medium text-gray-900 text-sm">{b.member_name}</span>
-                  <BalanceBadge balance={bal} />
+                  <span className="font-medium text-gray-900 text-sm dark:text-gray-100">{b.member_name}</span>
+                  <BalanceBadge balance={bal} formatAmount={formatAmount} />
                 </div>
-                <div className="flex justify-between text-xs text-gray-500">
-                  <span>Share: <strong>৳{Number(b.expense_share).toFixed(2)}</strong></span>
-                  <span>Paid: <strong>৳{paid.toFixed(2)}</strong></span>
+                <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                  <span>Share: <strong className="dark:text-gray-200">{formatAmount(b.expense_share)}</strong></span>
+                  <span>Paid: <strong className="dark:text-gray-200">{formatAmount(paid)}</strong></span>
                 </div>
               </div>
             )
@@ -779,6 +825,7 @@ const EMPTY_EXPENSE_FORM = {
 }
 
 function Expenses({ showToast, showConfirm }) {
+  const { formatAmount, getCurrencySymbol } = useSettings()
   const [expenses, setExpenses] = useState([])
   const [categories, setCategories] = useState([])
   const [members, setMembers] = useState([])
@@ -790,29 +837,74 @@ function Expenses({ showToast, showConfirm }) {
   const [showForm, setShowForm] = useState(false)
   const [editingRecord, setEditingRecord] = useState(null)
   const isEditing = editingRecord !== null
-  const [addingCategory, setAddingCategory] = useState(false)
-  const [newCategoryName, setNewCategoryName] = useState('')
-  const [addingCategoryLoading, setAddingCategoryLoading] = useState(false)
-  const [addingPerson, setAddingPerson] = useState(false)
-  const [newPersonName, setNewPersonName] = useState('')
-  const [addingPersonLoading, setAddingPersonLoading] = useState(false)
+  const {
+    addingPerson, setAddingPerson, newPersonName, setNewPersonName, addingPersonLoading,
+    handleAddPerson, handleCancelAddPerson
+  } = useAddPerson({
+    formFieldName: 'paid_by',
+    onPersonAdded: async (data) => {
+      await fetchData()
+    },
+    showToast,
+  })
+  const {
+    addingCategory, setAddingCategory, newCategoryName, setNewCategoryName, addingCategoryLoading,
+    handleAddCategory, handleCancelAddCategory
+  } = useAddCategory({
+    onCategoryAdded: async (data) => {
+      setCategories((prev) => [...prev, data])
+      updateForm('category_id', data.id)
+    },
+    showToast,
+  })
+  const {
+    selectedIds, setSelectedIds, bulkDeleting, showBulkAssign, setShowBulkAssign,
+    handleToggleSelect, handleSelectAll, handleBulkDelete, handleBulkAssign, handleBulkExportCSV
+  } = useBulkActions({
+    tableName: 'expenses',
+    items: expenses,
+    assignColumn: 'paid_by',
+    itemLabel: 'expenses',
+    csvMapFn: (e) => ({
+      Date: e.expense_date,
+      Category: e.expense_categories?.name || '',
+      Description: e.description,
+      Amount: Number(e.amount).toFixed(2),
+      PaidBy: e.paid_by?.name || '',
+    }),
+    csvFileName: 'expenses',
+    fetchData,
+    showToast,
+    showConfirm,
+  })
+
+  const [bulkMode, setBulkMode] = useState(false)
+  const [managerId, setManagerId] = useState(null)
+  const [expenseShares, setExpenseShares] = useState({})
+
+  function handleSharesChange(shares) {
+    setExpenseShares(shares)
+  }
 
   useEffect(() => { fetchData() }, [])
 
   async function fetchData() {
     try {
       setLoading(true)
-      const [expRes, catRes, memRes] = await Promise.all([
+      const [expRes, catRes, memRes, mgrRes] = await Promise.all([
         supabase.from('expenses').select('*, expense_categories(*), paid_by:members(name)').order('expense_date', { ascending: false }),
         supabase.from('expense_categories').select('*').order('name'),
         supabase.from('members').select('*').order('name'),
+        supabase.from('members').select('id').eq('role', 'manager').limit(1).maybeSingle(),
       ])
       if (expRes.error) throw expRes.error
       if (catRes.error) throw catRes.error
       if (memRes.error) throw memRes.error
+      if (mgrRes.error) throw mgrRes.error
       setExpenses(expRes.data || [])
       setCategories(catRes.data || [])
       setMembers(memRes.data || [])
+      if (mgrRes.data) setManagerId(mgrRes.data.id)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -835,7 +927,7 @@ function Expenses({ showToast, showConfirm }) {
     } else if (isNaN(Number(form.amount)) || Number(form.amount) <= 0) {
       newErrors.amount = 'Enter a valid positive amount'
     } else if (Number(form.amount) > 999999.99) {
-      newErrors.amount = 'Amount cannot exceed ৳999,999.99'
+      newErrors.amount = `Amount cannot exceed ${getCurrencySymbol()}999,999.99`
     } else if ((form.amount.toString().split('.')[1] || '').length > 2) {
       newErrors.amount = 'Maximum 2 decimal places allowed'
     }
@@ -873,6 +965,8 @@ function Expenses({ showToast, showConfirm }) {
     })
     setErrors({})
     setShowForm(true)
+    // Load existing expense shares
+    loadExpenseShares(record.id)
   }
 
   function cancelEditing() {
@@ -880,6 +974,29 @@ function Expenses({ showToast, showConfirm }) {
     setForm(EMPTY_EXPENSE_FORM)
     setErrors({})
     setShowForm(false)
+    setExpenseShares({})
+  }
+
+  async function loadExpenseShares(expenseId) {
+    try {
+      const { data, error } = await supabase
+        .from('expense_shares')
+        .select('*')
+        .eq('expense_id', expenseId)
+      if (error) throw error
+      if (data && data.length > 0) {
+        const shares = {}
+        data.forEach((s) => {
+          shares[s.member_id] = {
+            type: s.share_type,
+            fixedAmount: s.fixed_amount ? String(s.fixed_amount) : '',
+          }
+        })
+        setExpenseShares(shares)
+      }
+    } catch (err) {
+      console.error('Failed to load expense shares:', err)
+    }
   }
 
   async function handleSubmit(e) {
@@ -898,16 +1015,20 @@ function Expenses({ showToast, showConfirm }) {
           })
           .eq('id', editingRecord.id)
         if (updErr) throw updErr
+        // Update expense shares
+        await saveExpenseShares(editingRecord.id)
         showToast('success', 'Expense updated successfully!')
       } else {
-        const { error: insErr } = await supabase.from('expenses').insert({
+        const { data: newExp, error: insErr } = await supabase.from('expenses').insert({
           expense_date: form.expense_date,
           category_id: form.category_id,
           description: form.description.trim(),
           amount: Number(form.amount),
           paid_by: form.paid_by,
-        })
+        }).select('id').single()
         if (insErr) throw insErr
+        // Save expense shares
+        await saveExpenseShares(newExp.id)
         showToast('success', 'Expense added successfully!')
       }
       setForm(EMPTY_EXPENSE_FORM)
@@ -922,6 +1043,33 @@ function Expenses({ showToast, showConfirm }) {
     }
   }
 
+  async function saveExpenseShares(expenseId) {
+    try {
+      const customShares = Object.entries(expenseShares).filter(
+        ([_, s]) => s.type !== 'equal'
+      )
+      if (customShares.length === 0) {
+        // No custom shares - delete any existing ones
+        await supabase.from('expense_shares').delete().eq('expense_id', expenseId)
+        return
+      }
+      // Delete existing shares and insert new ones
+      const { error: delErr } = await supabase.from('expense_shares').delete().eq('expense_id', expenseId)
+      if (delErr) throw delErr
+      const records = customShares.map(([memberId, s]) => ({
+        expense_id: expenseId,
+        member_id: memberId,
+        share_type: s.type,
+        fixed_amount: s.type === 'fixed' ? Number(s.fixedAmount) : null,
+      }))
+      const { error: insErr } = await supabase.from('expense_shares').insert(records)
+      if (insErr) throw insErr
+    } catch (err) {
+      console.error('Failed to save expense shares:', err)
+      throw err
+    }
+  }
+
   async function handleDelete(id) {
     try {
       const { error: delErr } = await supabase.from('expenses').delete().eq('id', id)
@@ -933,84 +1081,9 @@ function Expenses({ showToast, showConfirm }) {
     }
   }
 
-  async function handleAddPerson() {
-    const name = newPersonName.trim()
-    if (!name) {
-      showToast('error', 'Person name is required')
-      return
-    }
-    if (name.length < 2) {
-      showToast('error', 'Person name must be at least 2 characters')
-      return
-    }
-    if (name.length > 100) {
-      showToast('error', 'Person name must be under 100 characters')
-      return
-    }
-    try {
-      setAddingPersonLoading(true)
-      const { data, error: insErr } = await supabase
-        .from('members')
-        .insert({ name })
-        .select()
-        .single()
-      if (insErr) throw insErr
-      await fetchData()
-      updateForm('paid_by', data.id)
-      setAddingPerson(false)
-      setNewPersonName('')
-      showToast('success', `Person "${name}" added!`)
-    } catch (err) {
-      showToast('error', err.message || 'Failed to add person')
-    } finally {
-      setAddingPersonLoading(false)
-    }
-  }
 
-  function handleCancelAddPerson() {
-    setAddingPerson(false)
-    setNewPersonName('')
-  }
 
-  async function handleAddCategory() {
-    const name = newCategoryName.trim()
-    if (!name) {
-      showToast('error', 'Category name is required')
-      return
-    }
-    if (name.length < 2) {
-      showToast('error', 'Category name must be at least 2 characters')
-      return
-    }
-    if (name.length > 100) {
-      showToast('error', 'Category name must be under 100 characters')
-      return
-    }
-    try {
-      setAddingCategoryLoading(true)
-      const { data, error: insErr } = await supabase
-        .from('expense_categories')
-        .insert({ name, icon: 'package' })
-        .select()
-        .single()
-      if (insErr) throw insErr
-      await fetchData()
-      // Select the new category
-      updateForm('category_id', data.id)
-      setAddingCategory(false)
-      setNewCategoryName('')
-      showToast('success', `Category "${name}" added!`)
-    } catch (err) {
-      showToast('error', err.message || 'Failed to add category')
-    } finally {
-      setAddingCategoryLoading(false)
-    }
-  }
 
-  function handleCancelAddCategory() {
-    setAddingCategory(false)
-    setNewCategoryName('')
-  }
 
   const total = expenses.reduce((s, e) => s + Number(e.amount), 0)
 
@@ -1020,7 +1093,7 @@ function Expenses({ showToast, showConfirm }) {
   return (
     <div className="space-y-5 sm:space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">Expenses</h2>
+        <h2 className="text-xl font-bold text-gray-900 sm:text-2xl dark:text-gray-100">Expenses</h2>
         <button
           onClick={() => {
             if (editingRecord) {
@@ -1033,6 +1106,12 @@ function Expenses({ showToast, showConfirm }) {
         >
           {editingRecord || showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
           {editingRecord ? 'Cancel' : showForm ? 'Cancel' : 'Add Expense'}
+        </button>
+        <button
+          onClick={() => { setBulkMode(!bulkMode); if (bulkMode) setSelectedIds(new Set()) }}
+          className={`btn-ghost px-3 py-2.5 text-xs sm:text-sm sm:px-4 sm:py-3 ${bulkMode ? 'bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200 dark:bg-indigo-900/50 dark:text-indigo-300 dark:ring-indigo-700/50' : ''}`}
+        >
+          {bulkMode ? 'Done' : 'Select'}
         </button>
       </div>
 
@@ -1115,7 +1194,7 @@ function Expenses({ showToast, showConfirm }) {
                   className={`input ${errors.description ? 'input-error' : ''}`}
                 />
               </FormField>
-              <FormField label="Amount (৳)" error={errors.amount}>
+              <FormField label={`Amount (${getCurrencySymbol()})`} error={errors.amount}>
                 <input
                   type="number"
                   step="0.01"
@@ -1190,6 +1269,15 @@ function Expenses({ showToast, showConfirm }) {
                 </SubmitButton>
               </div>
             </div>
+            {managerId && Number(form.amount) > 0 && (
+              <ExpenseSharingEditor
+                members={members}
+                managerId={managerId}
+                expenseAmount={form.amount}
+                existingShares={expenseShares}
+                onChange={handleSharesChange}
+              />
+            )}
           </form>
         </FormCard>
       )}
@@ -1199,23 +1287,28 @@ function Expenses({ showToast, showConfirm }) {
         rows={expenses}
         total={total}
         totalColSpan={3}
+        selectable={bulkMode}
+        selectedIds={selectedIds}
+        onToggleSelect={handleToggleSelect}
+        onSelectAll={handleSelectAll}
         emptyMsg="No expenses recorded yet"
+        formatAmount={formatAmount}
         renderRow={(exp) => (
           <>
-            <td className="whitespace-nowrap px-4 py-3.5 text-gray-600 text-sm">{exp.expense_date}</td>
+            <td className="whitespace-nowrap px-4 py-3.5 text-gray-600 text-sm dark:text-gray-400">{exp.expense_date}</td>
             <td className="whitespace-nowrap px-4 py-3.5">
-              <span className="badge bg-indigo-100 text-indigo-700">
+              <span className="badge bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300">
                 {(() => { const I = CATEGORY_ICONS[exp.expense_categories?.name]; return I ? <I className="h-3 w-3" /> : null })()}
                 {exp.expense_categories?.name}
               </span>
             </td>
-            <td className="px-4 py-3.5 font-medium text-gray-900 text-sm">{exp.description}</td>
-            <td className="whitespace-nowrap px-4 py-3.5 text-right font-bold text-gray-900">৳{Number(exp.amount).toFixed(2)}</td>
-            <td className="whitespace-nowrap px-4 py-3.5 text-gray-600 text-sm">{exp.paid_by?.name}</td>
+            <td className="px-4 py-3.5 font-medium text-gray-900 text-sm dark:text-gray-100">{exp.description}</td>
+            <td className="whitespace-nowrap px-4 py-3.5 text-right font-bold text-gray-900 dark:text-gray-100">{formatAmount(exp.amount)}</td>
+            <td className="whitespace-nowrap px-4 py-3.5 text-gray-600 text-sm dark:text-gray-400">{exp.paid_by?.name}</td>
             <td className="whitespace-nowrap px-4 py-3.5 text-center">
               <div className="flex items-center justify-center gap-1">
                 <EditBtn onClick={() => startEditing(exp)} />
-                <DeleteBtn onClick={() => showConfirm(`Delete this expense of ৳${Number(exp.amount).toFixed(2)}?`, () => handleDelete(exp.id))} />
+                <DeleteBtn onClick={() => showConfirm(`Delete this expense of ${formatAmount(Number(exp.amount))}?`, () => handleDelete(exp.id))} />
               </div>
             </td>
           </>
@@ -1226,11 +1319,29 @@ function Expenses({ showToast, showConfirm }) {
             subtitle={exp.expense_date}
             meta={exp.paid_by?.name}
             amount={Number(exp.amount)}
+            formatAmount={formatAmount}
             badge={exp.expense_categories?.name}
             onEdit={() => startEditing(exp)}
-            onDelete={() => showConfirm(`Delete this expense of ৳${Number(exp.amount).toFixed(2)}?`, () => handleDelete(exp.id))}
+            onDelete={() => showConfirm(`Delete this expense of ${formatAmount(Number(exp.amount))}?`, () => handleDelete(exp.id))}
           />
         )}
+      />
+      {bulkMode && (
+        <BulkActionBar
+          selectedCount={selectedIds.size}
+          onClearSelection={() => setSelectedIds(new Set())}
+          actions={[
+            { label: 'Delete', icon: Trash2, variant: 'danger', onClick: handleBulkDelete, loading: bulkDeleting },
+            { label: 'Assign', icon: User, onClick: () => setShowBulkAssign(true) },
+            { label: 'Export CSV', icon: Download, onClick: handleBulkExportCSV },
+          ]}
+        />
+      )}
+      <AssignMemberModal
+        open={showBulkAssign}
+        onClose={() => setShowBulkAssign(false)}
+        onAssign={handleBulkAssign}
+        title="Assign Expenses to Member"
       />
     </div>
   )
@@ -1249,6 +1360,8 @@ const EMPTY_ADVANCE_FORM = {
 }
 
 function Advances({ showToast, showConfirm }) {
+  const [bulkMode, setBulkMode] = useState(false)
+  const { formatAmount, getCurrencySymbol } = useSettings()
   const [advances, setAdvances] = useState([])
   const [members, setMembers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -1259,9 +1372,37 @@ function Advances({ showToast, showConfirm }) {
   const [showForm, setShowForm] = useState(false)
   const [editingRecord, setEditingRecord] = useState(null)
   const isEditing = editingRecord !== null
-  const [addingPerson, setAddingPerson] = useState(false)
-  const [newPersonName, setNewPersonName] = useState('')
-  const [addingPersonLoading, setAddingPersonLoading] = useState(false)
+  const {
+    addingPerson, setAddingPerson, newPersonName, setNewPersonName, addingPersonLoading,
+    handleAddPerson, handleCancelAddPerson
+  } = useAddPerson({
+    formFieldName: 'member_id',
+    onPersonAdded: async (data) => {
+      const memRes = await supabase.from('members').select('*').order('name')
+      if (!memRes.error) setMembers(memRes.data || [])
+    },
+    showToast,
+  })
+  const {
+    selectedIds, setSelectedIds, bulkDeleting, showBulkAssign, setShowBulkAssign,
+    handleToggleSelect, handleSelectAll, handleBulkDelete, handleBulkAssign, handleBulkExportCSV
+  } = useBulkActions({
+    tableName: 'advances',
+    items: advances,
+    assignColumn: 'member_id',
+    itemLabel: 'advances',
+    csvMapFn: (a) => ({
+      Date: a.payment_date,
+      Person: a.members?.name || '',
+      Amount: Number(a.amount).toFixed(2),
+      Method: a.method,
+      Notes: a.notes || '',
+    }),
+    csvFileName: 'advances',
+    fetchData,
+    showToast,
+    showConfirm,
+  })
 
   useEffect(() => { fetchData() }, [])
 
@@ -1270,7 +1411,7 @@ function Advances({ showToast, showConfirm }) {
       setLoading(true)
       const [advRes, memRes] = await Promise.all([
         supabase.from('advances').select('*, members(name)').order('payment_date', { ascending: false }),
-        supabase.from('members').select('*').neq('name', 'Abir').order('name'),
+        supabase.from('members').select('*').order('name'),
       ])
       if (advRes.error) throw advRes.error
       if (memRes.error) throw memRes.error
@@ -1291,7 +1432,7 @@ function Advances({ showToast, showConfirm }) {
     } else if (isNaN(Number(form.amount)) || Number(form.amount) <= 0) {
       newErrors.amount = 'Enter a valid positive amount'
     } else if (Number(form.amount) > 999999.99) {
-      newErrors.amount = 'Amount cannot exceed ৳999,999.99'
+      newErrors.amount = `Amount cannot exceed ${getCurrencySymbol()}999,999.99`
     } else if ((form.amount.toString().split('.')[1] || '').length > 2) {
       newErrors.amount = 'Maximum 2 decimal places allowed'
     }
@@ -1340,45 +1481,7 @@ function Advances({ showToast, showConfirm }) {
     setShowForm(false)
   }
 
-  async function handleAddPerson() {
-    const name = newPersonName.trim()
-    if (!name) {
-      showToast('error', 'Person name is required')
-      return
-    }
-    if (name.length < 2) {
-      showToast('error', 'Person name must be at least 2 characters')
-      return
-    }
-    if (name.length > 100) {
-      showToast('error', 'Person name must be under 100 characters')
-      return
-    }
-    try {
-      setAddingPersonLoading(true)
-      const { data, error: insErr } = await supabase
-        .from('members')
-        .insert({ name })
-        .select()
-        .single()
-      if (insErr) throw insErr
-      const memRes = await supabase.from('members').select('*').neq('name', 'Abir').order('name')
-      if (!memRes.error) setMembers(memRes.data || [])
-      updateForm('member_id', data.id)
-      setAddingPerson(false)
-      setNewPersonName('')
-      showToast('success', `Person "${name}" added!`)
-    } catch (err) {
-      showToast('error', err.message || 'Failed to add person')
-    } finally {
-      setAddingPersonLoading(false)
-    }
-  }
 
-  function handleCancelAddPerson() {
-    setAddingPerson(false)
-    setNewPersonName('')
-  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -1439,7 +1542,7 @@ function Advances({ showToast, showConfirm }) {
   return (
     <div className="space-y-5 sm:space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">Advances</h2>
+        <h2 className="text-xl font-bold text-gray-900 sm:text-2xl dark:text-gray-100">Advances</h2>
         <button
           onClick={() => {
             if (editingRecord) {
@@ -1452,6 +1555,12 @@ function Advances({ showToast, showConfirm }) {
         >
           {editingRecord || showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
           {editingRecord ? 'Cancel' : showForm ? 'Cancel' : 'Add Advance'}
+        </button>
+        <button
+          onClick={() => { setBulkMode(!bulkMode); if (bulkMode) setSelectedIds(new Set()) }}
+          className={`btn-ghost px-3 py-2.5 text-xs sm:text-sm sm:px-4 sm:py-3 ${bulkMode ? 'bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200 dark:bg-indigo-900/50 dark:text-indigo-300 dark:ring-indigo-700/50' : ''}`}
+        >
+          {bulkMode ? 'Done' : 'Select'}
         </button>
       </div>
 
@@ -1525,7 +1634,7 @@ function Advances({ showToast, showConfirm }) {
                   </div>
                 )}
               </FormField>
-              <FormField label="Amount (৳)" error={errors.amount}>
+              <FormField label={`Amount (${getCurrencySymbol()})`} error={errors.amount}>
                 <input
                   type="number"
                   step="0.01"
@@ -1571,12 +1680,17 @@ function Advances({ showToast, showConfirm }) {
         rows={advances}
         total={total}
         totalColSpan={2}
+        selectable={bulkMode}
+        selectedIds={selectedIds}
+        onToggleSelect={handleToggleSelect}
+        onSelectAll={handleSelectAll}
         emptyMsg="No advances recorded yet"
+        formatAmount={formatAmount}
         renderRow={(adv) => (
           <>
             <td className="whitespace-nowrap px-4 py-3.5 text-gray-600 text-sm">{adv.payment_date}</td>
             <td className="whitespace-nowrap px-4 py-3.5 font-medium text-gray-900">{adv.members?.name}</td>
-            <td className="whitespace-nowrap px-4 py-3.5 text-right font-bold text-gray-900">৳{Number(adv.amount).toFixed(2)}</td>
+            <td className="whitespace-nowrap px-4 py-3.5 text-right font-bold text-gray-900">{formatAmount(adv.amount)}</td>
             <td className="whitespace-nowrap px-4 py-3.5">
               <span className="badge bg-emerald-100 text-emerald-700">{adv.method}</span>
             </td>
@@ -1584,7 +1698,7 @@ function Advances({ showToast, showConfirm }) {
             <td className="whitespace-nowrap px-4 py-3.5 text-center">
               <div className="flex items-center justify-center gap-1">
                 <EditBtn onClick={() => startEditing(adv)} />
-                <DeleteBtn onClick={() => showConfirm(`Delete this advance of ৳${Number(adv.amount).toFixed(2)} for ${adv.members?.name}?`, () => handleDelete(adv.id))} />
+                <DeleteBtn onClick={() => showConfirm(`Delete this advance of ${formatAmount(Number(adv.amount))} for ${adv.members?.name}?`, () => handleDelete(adv.id))} />
               </div>
             </td>
           </>
@@ -1595,11 +1709,29 @@ function Advances({ showToast, showConfirm }) {
             subtitle={adv.payment_date}
             meta={adv.notes || adv.method}
             amount={Number(adv.amount)}
+            formatAmount={formatAmount}
             badge={adv.method}
             onEdit={() => startEditing(adv)}
-            onDelete={() => showConfirm(`Delete this advance of ৳${Number(adv.amount).toFixed(2)}?`, () => handleDelete(adv.id))}
+            onDelete={() => showConfirm(`Delete this advance of ${formatAmount(Number(adv.amount))} for ${adv.members?.name}?`, () => handleDelete(adv.id))}
           />
         )}
+      />
+      {bulkMode && (
+<BulkActionBar
+        selectedCount={selectedIds.size}
+        onClearSelection={() => setSelectedIds(new Set())}
+        actions={[
+          { label: 'Delete', icon: Trash2, variant: 'danger', onClick: handleBulkDelete, loading: bulkDeleting },
+          { label: 'Assign', icon: User, onClick: () => setShowBulkAssign(true) },
+          { label: 'Export CSV', icon: Download, onClick: handleBulkExportCSV },
+        ]}
+      />
+      )}
+      <AssignMemberModal
+        open={showBulkAssign}
+        onClose={() => setShowBulkAssign(false)}
+        onAssign={handleBulkAssign}
+        title="Assign Advances to Member"
       />
     </div>
   )
@@ -1617,6 +1749,8 @@ const EMPTY_CONTRIB_FORM = {
 }
 
 function Contributions({ showToast, showConfirm }) {
+  const [bulkMode, setBulkMode] = useState(false)
+  const { formatAmount, getCurrencySymbol } = useSettings()
   const [contributions, setContributions] = useState([])
   const [members, setMembers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -1627,23 +1761,54 @@ function Contributions({ showToast, showConfirm }) {
   const [showForm, setShowForm] = useState(false)
   const [editingRecord, setEditingRecord] = useState(null)
   const isEditing = editingRecord !== null
-  const [addingPerson, setAddingPerson] = useState(false)
-  const [newPersonName, setNewPersonName] = useState('')
-  const [addingPersonLoading, setAddingPersonLoading] = useState(false)
+  const {
+    addingPerson, setAddingPerson, newPersonName, setNewPersonName, addingPersonLoading,
+    handleAddPerson, handleCancelAddPerson
+  } = useAddPerson({
+    formFieldName: 'member_id',
+    onPersonAdded: async (data) => {
+      const memRes = await supabase.from('members').select('*').order('name')
+      if (!memRes.error) setMembers(memRes.data || [])
+    },
+    showToast,
+  })
+  const [managerName, setManagerName] = useState('Manager')
+  const {
+    selectedIds, setSelectedIds, bulkDeleting, showBulkAssign, setShowBulkAssign,
+    handleToggleSelect, handleSelectAll, handleBulkDelete, handleBulkAssign, handleBulkExportCSV
+  } = useBulkActions({
+    tableName: 'contributions',
+    items: contributions,
+    assignColumn: 'member_id',
+    itemLabel: 'contributions',
+    csvMapFn: (c) => ({
+      Date: c.contribution_date,
+      Person: c.members?.name || '',
+      Amount: Number(c.amount).toFixed(2),
+      Reason: c.reason,
+    }),
+    csvFileName: 'contributions',
+    fetchData,
+    showToast,
+    showConfirm,
+  })
 
   useEffect(() => { fetchData() }, [])
 
   async function fetchData() {
     try {
       setLoading(true)
-      const [conRes, memRes] = await Promise.all([
+      const [conRes, memRes, mgrRes] = await Promise.all([
         supabase.from('contributions').select('*, members(name)').order('contribution_date', { ascending: false }),
-        supabase.from('members').select('*').neq('name', 'Abir').order('name'),
+        supabase.from('members').select('*').order('name'),
+        supabase.from('members').select('name').eq('role', 'manager').limit(1).maybeSingle(),
       ])
       if (conRes.error) throw conRes.error
       if (memRes.error) throw memRes.error
+      if (mgrRes.error) throw mgrRes.error
       setContributions(conRes.data || [])
       setMembers(memRes.data || [])
+      if (mgrRes.data) setManagerName(mgrRes.data.name)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -1659,7 +1824,7 @@ function Contributions({ showToast, showConfirm }) {
     } else if (isNaN(Number(form.amount)) || Number(form.amount) <= 0) {
       newErrors.amount = 'Enter a valid positive amount'
     } else if (Number(form.amount) > 999999.99) {
-      newErrors.amount = 'Amount cannot exceed ৳999,999.99'
+      newErrors.amount = `Amount cannot exceed ${getCurrencySymbol()}999,999.99`
     } else if ((form.amount.toString().split('.')[1] || '').length > 2) {
       newErrors.amount = 'Maximum 2 decimal places allowed'
     }
@@ -1711,45 +1876,7 @@ function Contributions({ showToast, showConfirm }) {
     setShowForm(false)
   }
 
-  async function handleAddPerson() {
-    const name = newPersonName.trim()
-    if (!name) {
-      showToast('error', 'Person name is required')
-      return
-    }
-    if (name.length < 2) {
-      showToast('error', 'Person name must be at least 2 characters')
-      return
-    }
-    if (name.length > 100) {
-      showToast('error', 'Person name must be under 100 characters')
-      return
-    }
-    try {
-      setAddingPersonLoading(true)
-      const { data, error: insErr } = await supabase
-        .from('members')
-        .insert({ name })
-        .select()
-        .single()
-      if (insErr) throw insErr
-      const memRes = await supabase.from('members').select('*').neq('name', 'Abir').order('name')
-      if (!memRes.error) setMembers(memRes.data || [])
-      updateForm('member_id', data.id)
-      setAddingPerson(false)
-      setNewPersonName('')
-      showToast('success', `Person "${name}" added!`)
-    } catch (err) {
-      showToast('error', err.message || 'Failed to add person')
-    } finally {
-      setAddingPersonLoading(false)
-    }
-  }
 
-  function handleCancelAddPerson() {
-    setAddingPerson(false)
-    setNewPersonName('')
-  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -1808,7 +1935,7 @@ function Contributions({ showToast, showConfirm }) {
   return (
     <div className="space-y-5 sm:space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">Contributions</h2>
+        <h2 className="text-xl font-bold text-gray-900 sm:text-2xl dark:text-gray-100">Contributions</h2>
         <button
           onClick={() => {
             if (editingRecord) {
@@ -1822,9 +1949,15 @@ function Contributions({ showToast, showConfirm }) {
           {editingRecord || showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
           {editingRecord ? 'Cancel' : showForm ? 'Cancel' : 'Add Contribution'}
         </button>
+        <button
+          onClick={() => { setBulkMode(!bulkMode); if (bulkMode) setSelectedIds(new Set()) }}
+          className={`btn-ghost px-3 py-2.5 text-xs sm:text-sm sm:px-4 sm:py-3 ${bulkMode ? 'bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200 dark:bg-indigo-900/50 dark:text-indigo-300 dark:ring-indigo-700/50' : ''}`}
+        >
+          {bulkMode ? 'Done' : 'Select'}
+        </button>
       </div>
-      <p className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-4 py-3 text-sm leading-relaxed text-indigo-700">
-        Track money that <strong>Abir</strong> paid on behalf of other people.
+      <p className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-4 py-3 text-sm leading-relaxed text-indigo-700 dark:border-indigo-800/50 dark:bg-indigo-950/30 dark:text-indigo-300">
+        Track money that <strong>{managerName}</strong> paid on behalf of other people.
       </p>
 
       {showForm && (
@@ -1897,7 +2030,7 @@ function Contributions({ showToast, showConfirm }) {
                   </div>
                 )}
               </FormField>
-              <FormField label="Amount (৳)" error={errors.amount}>
+              <FormField label={`Amount (${getCurrencySymbol()})`} error={errors.amount}>
                 <input
                   type="number"
                   step="0.01"
@@ -1930,17 +2063,22 @@ function Contributions({ showToast, showConfirm }) {
         rows={contributions}
         total={total}
         totalColSpan={2}
+        selectable={bulkMode}
+        selectedIds={selectedIds}
+        onToggleSelect={handleToggleSelect}
+        onSelectAll={handleSelectAll}
         emptyMsg="No contributions recorded yet"
+        formatAmount={formatAmount}
         renderRow={(con) => (
           <>
             <td className="whitespace-nowrap px-4 py-3.5 text-gray-600 text-sm">{con.contribution_date}</td>
             <td className="whitespace-nowrap px-4 py-3.5 font-medium text-gray-900">{con.members?.name}</td>
-            <td className="whitespace-nowrap px-4 py-3.5 text-right font-bold text-gray-900">৳{Number(con.amount).toFixed(2)}</td>
+            <td className="whitespace-nowrap px-4 py-3.5 text-right font-bold text-gray-900">{formatAmount(con.amount)}</td>
             <td className="px-4 py-3.5 text-gray-500 text-sm">{con.reason}</td>
             <td className="whitespace-nowrap px-4 py-3.5 text-center">
               <div className="flex items-center justify-center gap-1">
                 <EditBtn onClick={() => startEditing(con)} />
-                <DeleteBtn onClick={() => showConfirm(`Delete this contribution of ৳${Number(con.amount).toFixed(2)} for ${con.members?.name}?`, () => handleDelete(con.id))} />
+                <DeleteBtn onClick={() => showConfirm(`Delete this contribution of ${formatAmount(Number(con.amount))} for ${con.members?.name}?`, () => handleDelete(con.id))} />
               </div>
             </td>
           </>
@@ -1951,10 +2089,28 @@ function Contributions({ showToast, showConfirm }) {
             subtitle={con.contribution_date}
             meta={con.reason}
             amount={Number(con.amount)}
+            formatAmount={formatAmount}
             onEdit={() => startEditing(con)}
-            onDelete={() => showConfirm(`Delete this contribution of ৳${Number(con.amount).toFixed(2)}?`, () => handleDelete(con.id))}
+            onDelete={() => showConfirm(`Delete this contribution of ${formatAmount(Number(con.amount))}?`, () => handleDelete(con.id))}
           />
         )}
+      />
+      {bulkMode && (
+<BulkActionBar
+        selectedCount={selectedIds.size}
+        onClearSelection={() => setSelectedIds(new Set())}
+        actions={[
+          { label: 'Delete', icon: Trash2, variant: 'danger', onClick: handleBulkDelete, loading: bulkDeleting },
+          { label: 'Assign', icon: User, onClick: () => setShowBulkAssign(true) },
+          { label: 'Export CSV', icon: Download, onClick: handleBulkExportCSV },
+        ]}
+      />
+      )}
+      <AssignMemberModal
+        open={showBulkAssign}
+        onClose={() => setShowBulkAssign(false)}
+        onAssign={handleBulkAssign}
+        title="Assign Contributions to Member"
       />
     </div>
   )
@@ -1965,6 +2121,7 @@ function Contributions({ showToast, showConfirm }) {
    ══════════════════════════════════════════════════ */
 
 function Settlement({ showToast }) {
+  const { formatAmount } = useSettings()
   const [balances, setBalances] = useState([])
   const [totalExpenses, setTotalExpenses] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -2101,17 +2258,17 @@ function Settlement({ showToast }) {
   if (loading) return <CenteredSpinner />
   if (error) return <ErrorBox msg={error} />
 
-  const perPersonShare = totalExpenses / 8
-  const others = balances.filter((b) => b.member_name !== 'Abir')
-  const abir = balances.find((b) => b.member_name === 'Abir')
+  const perPersonShare = allMembers.length > 0 ? totalExpenses / allMembers.length : 0
+  const others = balances.filter((b) => b.member_role !== 'manager')
+  const manager = balances.find((b) => b.member_role === 'manager')
   const totalCollected = balances.reduce((s, b) => s + Number(b.advance_paid) + Number(b.contribution_for_them) + Number(b.direct_paid), 0)
-  const abirBalance = abir ? Number(abir.balance) : 0
+  const managerBalance = manager ? Number(manager.balance) : 0
 
   const instructions = []
   others.forEach((b) => {
     const bal = Number(b.balance)
-    if (bal > 0.01) instructions.push({ from: b.member_name, to: 'Abir', amount: bal, type: 'owes' })
-    else if (bal < -0.01) instructions.push({ from: 'Abir', to: b.member_name, amount: Math.abs(bal), type: 'getsBack' })
+    if (bal > 0.01) instructions.push({ from: b.member_name, to: manager.member_name, amount: bal, type: 'owes' })
+    else if (bal < -0.01) instructions.push({ from: manager.member_name, to: b.member_name, amount: Math.abs(bal), type: 'getsBack' })
   })
 
   const settleDate = new Date().toLocaleDateString('en-US', {
@@ -2123,7 +2280,7 @@ function Settlement({ showToast }) {
   return (
     <div className="space-y-5 sm:space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">Settlement</h2>
+        <h2 className="text-xl font-bold text-gray-900 sm:text-2xl dark:text-gray-100">Settlement</h2>
         {!settled ? (
           <button
             onClick={handleMakeSettlement}
@@ -2138,7 +2295,7 @@ function Settlement({ showToast }) {
           </button>
         ) : (
           <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1 rounded-xl bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+            <span className="flex items-center gap-1 rounded-xl bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">
               <CheckCircle2 className="h-3.5 w-3.5" />
               Settled
             </span>
@@ -2150,23 +2307,22 @@ function Settlement({ showToast }) {
         <div className="card">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <p className="text-xs font-medium text-gray-500">Per Person Share</p>
-              <p className="text-lg font-bold text-gray-900 sm:text-xl">৳{perPersonShare.toFixed(2)}</p>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Per Person Share</p>
+              <p className="text-lg font-bold text-gray-900 sm:text-xl dark:text-gray-100">{formatAmount(perPersonShare)}</p>
             </div>
-            <div className="rounded-xl bg-indigo-100 p-2.5">
-              <Scale className="h-4 w-4 text-indigo-600 sm:h-5 sm:w-5" />
+            <div className="rounded-xl bg-indigo-100 p-2.5 dark:bg-indigo-900/50">
+              <Scale className="h-4 w-4 text-indigo-600 sm:h-5 sm:w-5 dark:text-indigo-400" />
             </div>
-          </div>
-          <p className="mt-2 text-xs text-gray-500">Total ৳{totalExpenses.toFixed(2)} ÷ 8 people</p>
+          </div>              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Total {formatAmount(totalExpenses)} ÷ {allMembers.length} people</p>
         </div>
         <div className="card">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <p className="text-xs font-medium text-gray-500">Total Collected</p>
-              <p className="text-lg font-bold text-gray-900 sm:text-xl">৳{totalCollected.toFixed(2)}</p>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Total Collected</p>
+              <p className="text-lg font-bold text-gray-900 sm:text-xl dark:text-gray-100">{formatAmount(totalCollected)}</p>
             </div>
-            <div className="rounded-xl bg-emerald-100 p-2.5">
-              <Wallet className="h-4 w-4 text-emerald-600 sm:h-5 sm:w-5" />
+            <div className="rounded-xl bg-emerald-100 p-2.5 dark:bg-emerald-900/50">
+              <Wallet className="h-4 w-4 text-emerald-600 sm:h-5 sm:w-5 dark:text-emerald-400" />
             </div>
           </div>
           <p className="mt-2 text-xs text-gray-500">Advances + Contributions + Direct payments</p>
@@ -2207,27 +2363,26 @@ function Settlement({ showToast }) {
           {/* Printable Summary */}
           <div
             ref={summaryRef}
-            className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-8 shadow-sm"
+            className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-8 shadow-sm dark:border-gray-700 dark:bg-gray-900"
             style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
           >
-            {/* Header */}
-            <div className="mb-6 border-b border-gray-200 pb-4 text-center">
+            {/* Header */}              <div className="mb-6 border-b border-gray-200 pb-4 text-center dark:border-gray-700">
               <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100">
                 <Wallet className="h-5 w-5 text-indigo-600" />
               </div>
-              <h3 className="text-lg font-bold text-gray-900">Tour Expense Summary</h3>
-              <p className="text-xs text-gray-500">Settled on {settleDate}</p>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Tour Expense Summary</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Settled on {settleDate}</p>
             </div>
 
             {/* Summary Stats */}
             <div className="mb-5 grid grid-cols-2 gap-3">
-              <div className="rounded-xl bg-indigo-50 p-3 text-center">
-                <p className="text-[10px] font-medium text-gray-500">Total Expenses</p>
-                <p className="text-base font-bold text-gray-900">৳{totalExpenses.toFixed(2)}</p>
+              <div className="rounded-xl bg-indigo-50 p-3 text-center dark:bg-indigo-900/30">
+                <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400">Total Expenses</p>
+                <p className="text-base font-bold text-gray-900 dark:text-gray-100">{formatAmount(totalExpenses)}</p>
               </div>
-              <div className="rounded-xl bg-emerald-50 p-3 text-center">
-                <p className="text-[10px] font-medium text-gray-500">Per Person Share</p>
-                <p className="text-base font-bold text-gray-900">৳{perPersonShare.toFixed(2)}</p>
+              <div className="rounded-xl bg-emerald-50 p-3 text-center dark:bg-emerald-900/30">
+                <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400">Per Person Share</p>
+                <p className="text-base font-bold text-gray-900 dark:text-gray-100">{formatAmount(perPersonShare)}</p>
               </div>
             </div>
 
@@ -2240,12 +2395,12 @@ function Settlement({ showToast }) {
               <div className="space-y-1">
                 {allExpenses.length === 0 && <p className="text-xs text-gray-400">No expenses recorded</p>}
                 {allExpenses.map((exp) => (
-                  <div key={exp.id} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-xs">
+                  <div key={exp.id} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-xs dark:bg-gray-800/50">
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 truncate">{exp.description}</p>
-                      <p className="text-gray-500">{exp.expense_date} · {exp.paid_by?.name} · {exp.expense_categories?.name}</p>
+                      <p className="font-medium text-gray-900 truncate dark:text-gray-200">{exp.description}</p>
+                      <p className="text-gray-500 dark:text-gray-400">{exp.expense_date} · {exp.paid_by?.name} · {exp.expense_categories?.name}</p>
                     </div>
-                    <span className="ml-2 font-semibold text-gray-900">৳{Number(exp.amount).toFixed(2)}</span>
+                    <span className="ml-2 font-semibold text-gray-900 dark:text-gray-100">{formatAmount(exp.amount)}</span>
                   </div>
                 ))}
               </div>
@@ -2260,12 +2415,12 @@ function Settlement({ showToast }) {
               <div className="space-y-1">
                 {allAdvances.length === 0 && <p className="text-xs text-gray-400">No advances recorded</p>}
                 {allAdvances.map((adv) => (
-                  <div key={adv.id} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-xs">
+                  <div key={adv.id} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-xs dark:bg-gray-800/50">
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900">{adv.members?.name}</p>
-                      <p className="text-gray-500">{adv.payment_date} · {adv.method}{adv.notes ? ` · ${adv.notes}` : ''}</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-200">{adv.members?.name}</p>
+                      <p className="text-gray-500 dark:text-gray-400">{adv.payment_date} · {adv.method}{adv.notes ? ` · ${adv.notes}` : ''}</p>
                     </div>
-                    <span className="ml-2 font-semibold text-gray-900">৳{Number(adv.amount).toFixed(2)}</span>
+                    <span className="ml-2 font-semibold text-gray-900 dark:text-gray-100">{formatAmount(adv.amount)}</span>
                   </div>
                 ))}
               </div>
@@ -2285,7 +2440,7 @@ function Settlement({ showToast }) {
                       <p className="font-medium text-gray-900">{con.members?.name}</p>
                       <p className="text-gray-500">{con.contribution_date} · {con.reason}</p>
                     </div>
-                    <span className="ml-2 font-semibold text-gray-900">৳{Number(con.amount).toFixed(2)}</span>
+                    <span className="ml-2 font-semibold text-gray-900">{formatAmount(con.amount)}</span>
                   </div>
                 ))}
               </div>
@@ -2309,11 +2464,11 @@ function Settlement({ showToast }) {
                     }`}>
                       <div className="flex-1">
                         <span className="font-medium text-gray-900">{b.member_name}</span>
-                        {b.member_name === 'Abir' && <span className="ml-1.5 text-[10px] font-medium text-indigo-600">Manager</span>}
-                        <p className="text-gray-500">Share: ৳{Number(b.expense_share).toFixed(2)} · Paid: ৳{paid.toFixed(2)}</p>
+                        {b.member_role === 'manager' && <span className="ml-1.5 text-[10px] font-medium text-indigo-600">Manager</span>}
+                        <p className="text-gray-500">Share: {formatAmount(b.expense_share)} · Paid: {formatAmount(paid)}</p>
                       </div>
                       <span className={`ml-2 font-semibold ${owes ? 'text-red-700' : owed ? 'text-green-700' : 'text-gray-700'}`}>
-                        {owes ? `Owes ৳${bal.toFixed(2)}` : owed ? `Gets back ৳${Math.abs(bal).toFixed(2)}` : 'Settled'}
+                        {owes ? formatAmount(bal) : owed ? formatAmount(Math.abs(bal)) : 'Settled'}
                       </span>
                     </div>
                   )
@@ -2336,7 +2491,7 @@ function Settlement({ showToast }) {
                   }`}>
                     <strong>{inst.from}</strong>{' '}
                     {inst.type === 'owes' ? 'should pay' : 'should get back from'}{' '}
-                    <strong>{inst.to}</strong>: <strong>৳{inst.amount.toFixed(2)}</strong>
+                    <strong>{inst.to}</strong>: <strong>{formatAmount(inst.amount)}</strong>
                   </div>
                 )) : (
                   <div className="rounded-lg bg-gray-50 px-3 py-2.5 text-xs text-gray-500">
@@ -2362,22 +2517,23 @@ function Settlement({ showToast }) {
             const bal = Number(b.balance)
             const owes = bal > 0.01
             const owed = bal < -0.01
+            const rowBg = owes ? 'bg-red-50/50' : owed ? 'bg-green-50/50' : ''
             return (
-              <tr key={b.member_name} className={`${owes ? 'bg-red-50/50' : owed ? 'bg-green-50/50' : ''} transition-colors hover:bg-gray-50`}>
-                <td className="px-4 py-3 font-medium text-gray-900 text-sm">
+              <>
+                <td className={`px-4 py-3 font-medium text-gray-900 text-sm ${rowBg}`}>
                   {b.member_name}
-                  {b.member_name === 'Abir' && (
+                  {b.member_role === 'manager' && (
                     <span className="ml-2 badge bg-indigo-100 text-indigo-700">Manager</span>
                   )}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-right text-gray-700 text-sm">৳{Number(b.expense_share).toFixed(2)}</td>
-                <td className="whitespace-nowrap px-4 py-3 text-right text-gray-700 text-sm">৳{Number(b.advance_paid).toFixed(2)}</td>
-                <td className="whitespace-nowrap px-4 py-3 text-right text-gray-700 text-sm">৳{Number(b.contribution_for_them).toFixed(2)}</td>
-                <td className="whitespace-nowrap px-4 py-3 text-right text-gray-700 text-sm">৳{Number(b.direct_paid).toFixed(2)}</td>
-                <td className="whitespace-nowrap px-4 py-3 text-right">
-                  <BalanceBadge balance={bal} />
+                <td className={`whitespace-nowrap px-4 py-3 text-right text-gray-700 text-sm ${rowBg}`}>{formatAmount(b.expense_share)}</td>
+                <td className={`whitespace-nowrap px-4 py-3 text-right text-gray-700 text-sm ${rowBg}`}>{formatAmount(b.advance_paid)}</td>
+                <td className={`whitespace-nowrap px-4 py-3 text-right text-gray-700 text-sm ${rowBg}`}>{formatAmount(b.contribution_for_them)}</td>
+                <td className={`whitespace-nowrap px-4 py-3 text-right text-gray-700 text-sm ${rowBg}`}>{formatAmount(b.direct_paid)}</td>
+                <td className={`whitespace-nowrap px-4 py-3 text-right ${rowBg}`}>
+                  <BalanceBadge balance={bal} formatAmount={formatAmount} />
                 </td>
-              </tr>
+              </>
             )
           }}
           emptyMsg="No data available"
@@ -2396,17 +2552,17 @@ function Settlement({ showToast }) {
                 <div className="mb-2 flex items-center justify-between">
                   <span className="flex items-center gap-1.5 font-medium text-gray-900 text-sm">
                     {b.member_name}
-                    {b.member_name === 'Abir' && (
+                    {b.member_role === 'manager' && (
                       <span className="badge bg-indigo-100 text-indigo-700 text-[10px]">Mgr</span>
                     )}
                   </span>
-                  <BalanceBadge balance={bal} />
+                  <BalanceBadge balance={bal} formatAmount={formatAmount} />
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
-                  <span>Share: <strong className="text-gray-700">৳{Number(b.expense_share).toFixed(2)}</strong></span>
-                  <span>Advance: <strong className="text-gray-700">৳{Number(b.advance_paid).toFixed(2)}</strong></span>
-                  <span>Contribution: <strong className="text-gray-700">৳{Number(b.contribution_for_them).toFixed(2)}</strong></span>
-                  <span>Direct Paid: <strong className="text-gray-700">৳{Number(b.direct_paid).toFixed(2)}</strong></span>
+                  <span>Share: <strong className="text-gray-700">{formatAmount(b.expense_share)}</strong></span>
+                  <span>Advance: <strong className="text-gray-700">{formatAmount(b.advance_paid)}</strong></span>
+                  <span>Contribution: <strong className="text-gray-700">{formatAmount(b.contribution_for_them)}</strong></span>
+                  <span>Direct Paid: <strong className="text-gray-700">{formatAmount(b.direct_paid)}</strong></span>
                 </div>
               </div>
             )
@@ -2442,9 +2598,9 @@ function Settlement({ showToast }) {
                 </div>
                 <div className="flex-1">
                   {inst.type === 'owes' ? (
-                    <span><strong>{inst.from}</strong> should pay <strong>{inst.to}</strong>: <strong>৳{inst.amount.toFixed(2)}</strong></span>
+                    <span><strong>{inst.from}</strong> should pay <strong>{inst.to}</strong>: <strong>{formatAmount(inst.amount)}</strong></span>
                   ) : (
-                    <span><strong>{inst.from}</strong> should return to <strong>{inst.to}</strong>: <strong>৳{inst.amount.toFixed(2)}</strong></span>
+                    <span><strong>{inst.from}</strong> should return to <strong>{inst.to}</strong>: <strong>{formatAmount(inst.amount)}</strong></span>
                   )}
                 </div>
               </div>
@@ -2455,15 +2611,15 @@ function Settlement({ showToast }) {
               All settled up! No payments needed.
             </div>
           )}
-          {abir && (
+          {manager && (
             <div className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3.5 text-sm text-indigo-800">
               <div className="flex items-center gap-2">
                 <Wallet className="h-4 w-4 text-indigo-500" />
-                <strong>Net for Abir:</strong>{' '}
-                {abirBalance > 0.01 ? (
-                  <span>Needs to collect <strong>৳{abirBalance.toFixed(2)}</strong> from others</span>
-                ) : abirBalance < -0.01 ? (
-                  <span>Needs to return <strong>৳{Math.abs(abirBalance).toFixed(2)}</strong> to others</span>
+                <strong>Net for Manager:</strong>{' '}
+                {managerBalance > 0.01 ? (
+                  <span>Needs to collect <strong>{formatAmount(managerBalance)}</strong> from others</span>
+                ) : managerBalance < -0.01 ? (
+                  <span>Needs to return <strong>{formatAmount(Math.abs(managerBalance))}</strong> to others</span>
                 ) : (
                   <span>Everything is settled!</span>
                 )}
@@ -2517,7 +2673,7 @@ function Settlement({ showToast }) {
                       </div>
                     </div>
                     <span className={`ml-2 font-bold ${inst.type === 'owes' ? 'text-red-700' : 'text-green-700'}`}>
-                      ৳{inst.amount.toFixed(2)}
+                     `${formatAmount(inst.amount)}`
                     </span>
                   </div>
                 </div>
@@ -2725,7 +2881,7 @@ function HelpGuide() {
             <div className="flex flex-col items-center gap-1.5 text-xs">
               <div className="rounded-lg bg-indigo-100 px-3 py-2 font-semibold text-indigo-700">📋 Expenses</div>
               <ArrowDown className="h-3.5 w-3.5 text-gray-400" />
-              <div className="rounded-lg bg-amber-100 px-3 py-2 font-semibold text-amber-700">💰 Total Bill ÷ 8 People</div>
+              <div className="rounded-lg bg-amber-100 px-3 py-2 font-semibold text-amber-700">💰 Total Bill ÷ Total Members</div>
               <div className="flex items-center gap-3">
                 <ArrowDown className="h-3.5 w-3.5 text-gray-400" />
                 <span className="text-[10px] text-gray-400">minus</span>
@@ -2860,18 +3016,33 @@ function Modal({ open, onClose, title, children }) {
    ══════════════════════════════════════════════════ */
 
 function QuickAddExpenseModal({ open, onClose, onSuccess, showToast }) {
+  const { formatAmount, getCurrencySymbol } = useSettings()
   const [categories, setCategories] = useState([])
   const [members, setMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState(EMPTY_EXPENSE_FORM)
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
-  const [addingPerson, setAddingPerson] = useState(false)
-  const [newPersonName, setNewPersonName] = useState('')
-  const [addingPersonLoading, setAddingPersonLoading] = useState(false)
-  const [addingCategory, setAddingCategory] = useState(false)
-  const [newCategoryName, setNewCategoryName] = useState('')
-  const [addingCategoryLoading, setAddingCategoryLoading] = useState(false)
+  const {
+    addingPerson, setAddingPerson, newPersonName, setNewPersonName, addingPersonLoading,
+    handleAddPerson, handleCancelAddPerson
+  } = useAddPerson({
+    formFieldName: 'paid_by',
+    onPersonAdded: async (data) => {
+      await fetchData()
+    },
+    showToast,
+  })
+  const {
+    addingCategory, setAddingCategory, newCategoryName, setNewCategoryName, addingCategoryLoading,
+    handleAddCategory, handleCancelAddCategory
+  } = useAddCategory({
+    onCategoryAdded: async (data) => {
+      setCategories((prev) => [...prev, data])
+      setForm({ ...form, category_id: data.id })
+    },
+    showToast,
+  })
 
   useEffect(() => {
     if (open) {
@@ -2903,70 +3074,7 @@ function QuickAddExpenseModal({ open, onClose, onSuccess, showToast }) {
     }
   }
 
-  async function handleAddPerson(name) {
-    try {
-      setAddingPersonLoading(true)
-      const { data, error: insErr } = await supabase
-        .from('members')
-        .insert({ name })
-        .select()
-        .single()
-      if (insErr) throw insErr
-      await fetchDeps()
-      updateField('paid_by', data.id)
-      setAddingPerson(false)
-      setNewPersonName('')
-      showToast('success', `Person "${name}" added!`)
-    } catch (err) {
-      showToast('error', err.message || 'Failed to add person')
-    } finally {
-      setAddingPersonLoading(false)
-    }
-  }
 
-  function handleCancelAddPerson() {
-    setAddingPerson(false)
-    setNewPersonName('')
-  }
-
-  async function handleAddCategory() {
-    const name = newCategoryName.trim()
-    if (!name) {
-      showToast('error', 'Category name is required')
-      return
-    }
-    if (name.length < 2) {
-      showToast('error', 'Category name must be at least 2 characters')
-      return
-    }
-    if (name.length > 100) {
-      showToast('error', 'Category name must be under 100 characters')
-      return
-    }
-    try {
-      setAddingCategoryLoading(true)
-      const { data, error: insErr } = await supabase
-        .from('expense_categories')
-        .insert({ name, icon: 'package' })
-        .select()
-        .single()
-      if (insErr) throw insErr
-      await fetchDeps()
-      updateField('category_id', data.id)
-      setAddingCategory(false)
-      setNewCategoryName('')
-      showToast('success', `Category "${name}" added!`)
-    } catch (err) {
-      showToast('error', err.message || 'Failed to add category')
-    } finally {
-      setAddingCategoryLoading(false)
-    }
-  }
-
-  function handleCancelAddCategory() {
-    setAddingCategory(false)
-    setNewCategoryName('')
-  }
 
   function validate() {
     const newErrors = {}
@@ -2983,7 +3091,7 @@ function QuickAddExpenseModal({ open, onClose, onSuccess, showToast }) {
     } else if (isNaN(Number(form.amount)) || Number(form.amount) <= 0) {
       newErrors.amount = 'Enter a valid positive amount'
     } else if (Number(form.amount) > 999999.99) {
-      newErrors.amount = 'Amount cannot exceed ৳999,999.99'
+      newErrors.amount = `Amount cannot exceed ${getCurrencySymbol()}999,999.99`
     } else if ((form.amount.toString().split('.')[1] || '').length > 2) {
       newErrors.amount = 'Maximum 2 decimal places allowed'
     }
@@ -3104,7 +3212,7 @@ function QuickAddExpenseModal({ open, onClose, onSuccess, showToast }) {
             <input type="text" value={form.description} onChange={(e) => updateField('description', e.target.value)} placeholder="e.g. Dinner" className={`input ${errors.description ? 'input-error' : ''}`} />
           </FormField>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="Amount (৳)" error={errors.amount}>
+            <FormField label={`Amount (${getCurrencySymbol()})`} error={errors.amount}>
               <input type="number" step="0.01" min="0" value={form.amount} onChange={(e) => updateField('amount', e.target.value)} placeholder="0.00" className={`input ${errors.amount ? 'input-error' : ''}`} />
             </FormField>
             <FormField label="Paid By" error={errors.paid_by}>
@@ -3179,14 +3287,22 @@ function QuickAddExpenseModal({ open, onClose, onSuccess, showToast }) {
    ══════════════════════════════════════════════════ */
 
 function QuickAddAdvanceModal({ open, onClose, onSuccess, showToast }) {
+  const { formatAmount, getCurrencySymbol } = useSettings()
   const [members, setMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState(EMPTY_ADVANCE_FORM)
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
-  const [addingPerson, setAddingPerson] = useState(false)
-  const [newPersonName, setNewPersonName] = useState('')
-  const [addingPersonLoading, setAddingPersonLoading] = useState(false)
+  const {
+    addingPerson, setAddingPerson, newPersonName, setNewPersonName, addingPersonLoading,
+    handleAddPerson, handleCancelAddPerson
+  } = useAddPerson({
+    formFieldName: 'member_id',
+    onPersonAdded: async (data) => {
+      await fetchMembers()
+    },
+    showToast,
+  })
 
   useEffect(() => {
     if (open) {
@@ -3201,7 +3317,7 @@ function QuickAddAdvanceModal({ open, onClose, onSuccess, showToast }) {
   async function fetchMembers() {
     try {
       setLoading(true)
-      const { data, error } = await supabase.from('members').select('*').neq('name', 'Abir').order('name')
+      const { data, error } = await supabase.from('members').select('*').order('name')
       if (error) throw error
       setMembers(data || [])
     } catch (err) {
@@ -3211,43 +3327,7 @@ function QuickAddAdvanceModal({ open, onClose, onSuccess, showToast }) {
     }
   }
 
-  async function handleAddPerson(name) {
-    if (!name) {
-      showToast('error', 'Person name is required')
-      return
-    }
-    if (name.length < 2) {
-      showToast('error', 'Person name must be at least 2 characters')
-      return
-    }
-    if (name.length > 100) {
-      showToast('error', 'Person name must be under 100 characters')
-      return
-    }
-    try {
-      setAddingPersonLoading(true)
-      const { data, error: insErr } = await supabase
-        .from('members')
-        .insert({ name })
-        .select()
-        .single()
-      if (insErr) throw insErr
-      await fetchMembers()
-      updateField('member_id', data.id)
-      setAddingPerson(false)
-      setNewPersonName('')
-      showToast('success', `Person "${name}" added!`)
-    } catch (err) {
-      showToast('error', err.message || 'Failed to add person')
-    } finally {
-      setAddingPersonLoading(false)
-    }
-  }
 
-  function handleCancelAddPerson() {
-    setAddingPerson(false)
-    setNewPersonName('')
-  }
 
   function validate() {
     const newErrors = {}
@@ -3257,7 +3337,7 @@ function QuickAddAdvanceModal({ open, onClose, onSuccess, showToast }) {
     } else if (isNaN(Number(form.amount)) || Number(form.amount) <= 0) {
       newErrors.amount = 'Enter a valid positive amount'
     } else if (Number(form.amount) > 999999.99) {
-      newErrors.amount = 'Amount cannot exceed ৳999,999.99'
+      newErrors.amount = `Amount cannot exceed ${getCurrencySymbol()}999,999.99`
     } else if ((form.amount.toString().split('.')[1] || '').length > 2) {
       newErrors.amount = 'Maximum 2 decimal places allowed'
     }
@@ -3377,7 +3457,7 @@ function QuickAddAdvanceModal({ open, onClose, onSuccess, showToast }) {
             </FormField>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="Amount (৳)" error={errors.amount}>
+            <FormField label={`Amount (${getCurrencySymbol()})`} error={errors.amount}>
               <input type="number" step="0.01" min="0" value={form.amount} onChange={(e) => updateField('amount', e.target.value)} placeholder="0.00" className={`input ${errors.amount ? 'input-error' : ''}`} />
             </FormField>
             <FormField label="Method">
@@ -3404,14 +3484,22 @@ function QuickAddAdvanceModal({ open, onClose, onSuccess, showToast }) {
    ══════════════════════════════════════════════════ */
 
 function QuickAddContributionModal({ open, onClose, onSuccess, showToast }) {
+  const { formatAmount, getCurrencySymbol } = useSettings()
   const [members, setMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState(EMPTY_CONTRIB_FORM)
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
-  const [addingPerson, setAddingPerson] = useState(false)
-  const [newPersonName, setNewPersonName] = useState('')
-  const [addingPersonLoading, setAddingPersonLoading] = useState(false)
+  const {
+    addingPerson, setAddingPerson, newPersonName, setNewPersonName, addingPersonLoading,
+    handleAddPerson, handleCancelAddPerson
+  } = useAddPerson({
+    formFieldName: 'member_id',
+    onPersonAdded: async (data) => {
+      await fetchMembers()
+    },
+    showToast,
+  })
 
   useEffect(() => {
     if (open) {
@@ -3426,7 +3514,7 @@ function QuickAddContributionModal({ open, onClose, onSuccess, showToast }) {
   async function fetchMembers() {
     try {
       setLoading(true)
-      const { data, error } = await supabase.from('members').select('*').neq('name', 'Abir').order('name')
+      const { data, error } = await supabase.from('members').select('*').order('name')
       if (error) throw error
       setMembers(data || [])
     } catch (err) {
@@ -3436,43 +3524,7 @@ function QuickAddContributionModal({ open, onClose, onSuccess, showToast }) {
     }
   }
 
-  async function handleAddPerson(name) {
-    if (!name) {
-      showToast('error', 'Person name is required')
-      return
-    }
-    if (name.length < 2) {
-      showToast('error', 'Person name must be at least 2 characters')
-      return
-    }
-    if (name.length > 100) {
-      showToast('error', 'Person name must be under 100 characters')
-      return
-    }
-    try {
-      setAddingPersonLoading(true)
-      const { data, error: insErr } = await supabase
-        .from('members')
-        .insert({ name })
-        .select()
-        .single()
-      if (insErr) throw insErr
-      await fetchMembers()
-      updateField('member_id', data.id)
-      setAddingPerson(false)
-      setNewPersonName('')
-      showToast('success', `Person "${name}" added!`)
-    } catch (err) {
-      showToast('error', err.message || 'Failed to add person')
-    } finally {
-      setAddingPersonLoading(false)
-    }
-  }
 
-  function handleCancelAddPerson() {
-    setAddingPerson(false)
-    setNewPersonName('')
-  }
 
   function validate() {
     const newErrors = {}
@@ -3482,7 +3534,7 @@ function QuickAddContributionModal({ open, onClose, onSuccess, showToast }) {
     } else if (isNaN(Number(form.amount)) || Number(form.amount) <= 0) {
       newErrors.amount = 'Enter a valid positive amount'
     } else if (Number(form.amount) > 999999.99) {
-      newErrors.amount = 'Amount cannot exceed ৳999,999.99'
+      newErrors.amount = `Amount cannot exceed ${getCurrencySymbol()}999,999.99`
     } else if ((form.amount.toString().split('.')[1] || '').length > 2) {
       newErrors.amount = 'Maximum 2 decimal places allowed'
     }
@@ -3605,7 +3657,7 @@ function QuickAddContributionModal({ open, onClose, onSuccess, showToast }) {
             </FormField>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="Amount (৳)" error={errors.amount}>
+            <FormField label={`Amount (${getCurrencySymbol()})`} error={errors.amount}>
               <input type="number" step="0.01" min="0" value={form.amount} onChange={(e) => updateField('amount', e.target.value)} placeholder="0.00" className={`input ${errors.amount ? 'input-error' : ''}`} />
             </FormField>
             <FormField label="Reason" error={errors.reason}>
@@ -3668,7 +3720,7 @@ function FormField({ label, error, children }) {
   return (
     <div>
       <label className="mb-1.5 flex items-center gap-1 text-xs font-medium text-gray-600">
-        {label === 'Amount (৳)' && <DollarSign className="h-3 w-3" />}
+        {label.includes('Amount (') && <DollarSign className="h-3 w-3" />}
         {label === 'Date' && <Calendar className="h-3 w-3" />}
         {label === 'Person' || label === 'Paid By' ? <User className="h-3 w-3" /> : null}
         {label === 'Notes (optional)' || label === 'Reason' ? <FileText className="h-3 w-3" /> : null}
@@ -3706,6 +3758,9 @@ function SubmitButton({ loading, icon: Icon, children }) {
     </button>
   )
 }
+/* ══════════════════════════════════════════════════
+   BULK ACTION BAR
+   ══════════════════════════════════════════════════ */
 
 function EditBtn({ onClick }) {
   return (
@@ -3733,16 +3788,17 @@ function DeleteBtn({ onClick }) {
   )
 }
 
-function BalanceBadge({ balance }) {
+function BalanceBadge({ balance, formatAmount: fmt }) {
   const owes = balance > 0.01
   const owed = balance < -0.01
   const settled = Math.abs(balance) <= 0.01
+  const displayAmount = fmt ? fmt(Math.abs(balance)) : Math.abs(balance).toFixed(2)
   return (
     <span className={`badge gap-1 ${
       owes ? 'bg-red-100 text-red-700' : owed ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
     }`}>
       {owes ? <ArrowUpRight className="h-3 w-3" /> : owed ? <ArrowDownRight className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
-      ৳{Math.abs(balance).toFixed(2)}
+     {displayAmount}
       {owes && ' (owes)'}
       {owed && ' (gets back)'}
       {settled && ' (settled)'}
@@ -3750,7 +3806,7 @@ function BalanceBadge({ balance }) {
   )
 }
 
-function MobileDataRow({ title, subtitle, meta, amount, badge, onEdit, onDelete }) {
+function MobileDataRow({ title, subtitle, meta, amount, badge, onEdit, onDelete, formatAmount }) {
   return (
     <div className="flex items-center gap-3 rounded-xl bg-white p-3.5 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md active:scale-[0.99]">
       <div className="min-w-0 flex-1">
@@ -3771,7 +3827,7 @@ function MobileDataRow({ title, subtitle, meta, amount, badge, onEdit, onDelete 
         </div>
       </div>
       <div className="flex items-center gap-1">
-        <span className="text-sm font-bold text-gray-900">৳{amount.toFixed(2)}</span>
+        <span className="text-sm font-bold text-gray-900">{formatAmount(amount)}</span>
         {onEdit && <EditBtn onClick={onEdit} />}
         {onDelete && <DeleteBtn onClick={onDelete} />}
       </div>
@@ -3781,12 +3837,23 @@ function MobileDataRow({ title, subtitle, meta, amount, badge, onEdit, onDelete 
 
 /* ─── Desktop Table (no mobile cards in it) ─── */
 
-function DesktopTable({ headers, rows, renderRow, emptyMsg }) {
+function DesktopTable({ headers, rows, renderRow, emptyMsg, selectable, selectedIds, onToggleSelect, onSelectAll }) {
+  const allSelected = selectable && rows.length > 0 && rows.every((r) => selectedIds.has(r.id))
   return (
     <div className="hidden overflow-x-auto sm:block">
       <table className="w-full text-sm">
         <thead className="bg-gray-50/80">
           <tr className="text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+            {selectable && (
+              <th key="select-all" className="px-2 py-3 w-10">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={(e) => onSelectAll(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+              </th>
+            )}
             {headers.map((h, i) => (
               <th key={i} className={`px-4 py-3 ${h === 'Amount' || h === 'Balance' || h === 'Share' || h === 'Advance' || h === 'Contribution' || h === 'Direct Paid' || h === 'They Paid' || h === 'Their Share' ? 'text-right' : ''} ${!h ? 'text-center' : ''}`}>{h}</th>
             ))}
@@ -3795,12 +3862,26 @@ function DesktopTable({ headers, rows, renderRow, emptyMsg }) {
         <tbody className="divide-y divide-gray-100">
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={headers.length} className="px-4 py-8 text-center text-sm text-gray-400">
+              <td colSpan={headers.length + (selectable ? 1 : 0)} className="px-4 py-8 text-center text-sm text-gray-400">
                 {emptyMsg}
               </td>
             </tr>
           ) : (
-            rows.map((row) => renderRow(row))
+            rows.map((row) => (
+              <tr key={row.id || row.member_name} className={`transition-colors hover:bg-gray-50/80 ${selectedIds?.has(row.id) ? 'bg-indigo-50/50' : ''}`}>
+                {selectable && (
+                  <td className="px-2 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(row.id)}
+                      onChange={() => onToggleSelect(row.id)}
+                      className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                  </td>
+                )}
+                {renderRow(row)}
+              </tr>
+            ))
           )}
         </tbody>
       </table>
@@ -3810,8 +3891,9 @@ function DesktopTable({ headers, rows, renderRow, emptyMsg }) {
 
 /* ─── Responsive DataTable ─── */
 
-function DataTable({ headers, rows, total, totalColSpan, emptyMsg, renderRow, renderMobileCard }) {
+function DataTable({ headers, rows, total, totalColSpan, emptyMsg, renderRow, renderMobileCard, selectable, selectedIds, onToggleSelect, onSelectAll, formatAmount }) {
   const hasData = rows.length > 0
+  const allSelected = selectable && rows.length > 0 && rows.every((r) => selectedIds.has(r.id))
 
   return (
     <div className="card !p-0 overflow-hidden">
@@ -3820,6 +3902,16 @@ function DataTable({ headers, rows, total, totalColSpan, emptyMsg, renderRow, re
         <table className="w-full text-sm">
           <thead className="bg-gray-50/80">
             <tr className="text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+              {selectable && (
+                <th key="select-all" className="px-2 py-3 w-10">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={(e) => onSelectAll(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                </th>
+              )}
               {headers.map((h, i) => (
                 <th key={i} className={`px-4 py-3 ${h === 'Amount' ? 'text-right' : ''} ${!h ? 'text-center' : ''}`}>{h}</th>
               ))}
@@ -3827,14 +3919,14 @@ function DataTable({ headers, rows, total, totalColSpan, emptyMsg, renderRow, re
           </thead>
           <tbody className="divide-y divide-gray-100">
             {rows.map((row) => (
-              <tr key={row.id} className="transition-colors hover:bg-gray-50/80">{renderRow(row)}</tr>
+              <tr key={row.id || row.member_name} className={`transition-colors hover:bg-gray-50/80 ${selectedIds?.has(row.id) ? 'bg-indigo-50/50' : ''}`}>{renderRow(row)}</tr>
             ))}
           </tbody>
           {hasData && (
             <tfoot className="border-t-2 border-gray-100 bg-gray-50/50">
               <tr>
-                <td colSpan={totalColSpan} className="px-4 py-3.5 text-sm font-semibold text-gray-700">Total</td>
-                <td className="px-4 py-3.5 text-right text-sm font-bold text-gray-900">৳{total.toFixed(2)}</td>
+                <td colSpan={totalColSpan + (selectable ? 1 : 0)} className="px-4 py-3.5 text-sm font-semibold text-gray-700">Total</td>
+                <td className="px-4 py-3.5 text-right text-sm font-bold text-gray-900">{formatAmount(total)}</td>
                 <td colSpan={Math.max(0, headers.length - totalColSpan - 1)} />
               </tr>
             </tfoot>
@@ -3851,22 +3943,40 @@ function DataTable({ headers, rows, total, totalColSpan, emptyMsg, renderRow, re
           <div className="py-8 text-center text-sm text-gray-400">{emptyMsg}</div>
         ) : renderMobileCard ? (
           rows.map((row) => (
-            <div key={row.id} className="animate-slide-up">
-              {renderMobileCard(row)}
+            <div key={row.id} className={`flex items-start gap-2 animate-slide-up ${selectable ? 'pl-1' : ''}`}>
+              {selectable && (
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(row.id)}
+                  onChange={() => onToggleSelect(row.id)}
+                  className="mt-3 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 flex-shrink-0"
+                />
+              )}
+              <div className="flex-1 min-w-0">
+                {renderMobileCard(row)}
+              </div>
             </div>
           ))
         ) : (
           rows.map((row) => (
-            <div key={row.id} className="flex items-center justify-between rounded-xl bg-white p-3 shadow-sm ring-1 ring-gray-100">
+            <div key={row.id} className={`flex items-center justify-between rounded-xl bg-white p-3 shadow-sm ring-1 ring-gray-100 ${selectable ? 'pl-2' : ''}`}>
+              {selectable && (
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(row.id)}
+                  onChange={() => onToggleSelect(row.id)}
+                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 flex-shrink-0 mr-2"
+                />
+              )}
               <div className="text-sm text-gray-600">{row.id || row.name || '-'}</div>
-              <div className="text-sm font-bold text-gray-900">৳{Number(row.amount || 0).toFixed(2)}</div>
+              <div className="text-sm font-bold text-gray-900">{formatAmount(row.amount || 0)}</div>
             </div>
           ))
         )}
         {hasData && (
           <div className="flex items-center justify-between rounded-xl bg-indigo-50/50 px-3.5 py-3">
             <span className="text-sm font-semibold text-gray-700">Total</span>
-            <span className="text-sm font-bold text-gray-900">৳{total.toFixed(2)}</span>
+            <span className="text-sm font-bold text-gray-900">{formatAmount(total)}</span>
           </div>
         )}
       </div>
