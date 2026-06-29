@@ -13,7 +13,7 @@ import {
   Pencil,
 } from 'lucide-react'
 
-export default function Members({ showToast, showConfirm }) {
+export default function Members({ showToast, showConfirm, dataVersion }) {
   const [members, setMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -23,7 +23,7 @@ export default function Members({ showToast, showConfirm }) {
   const [submitting, setSubmitting] = useState(false)
   const [editingMember, setEditingMember] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
-  useEffect(() => { fetchMembers() }, [])
+  useEffect(() => { fetchMembers() }, [dataVersion])
 
   async function fetchMembers() {
     try {

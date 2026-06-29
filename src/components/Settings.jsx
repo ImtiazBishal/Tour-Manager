@@ -290,18 +290,18 @@ export default function Settings({ showToast, showConfirm }) {
             <button
               onClick={() => setDarkMode(!darkMode)}
               className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-200 ${
-                darkMode ? 'bg-indigo-600' : 'bg-gray-300'
+                darkMode ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'
               }`}
             >
               <span
-                className={`inline-flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                className={`inline-flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-sm transition-transform duration-200 dark:bg-gray-100 ${
                   darkMode ? 'translate-x-6' : 'translate-x-1'
                 }`}
               >
                 {darkMode ? (
-                  <Moon className="h-3 w-3 text-indigo-600" />
+                  <Moon className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
                 ) : (
-                  <Sun className="h-3 w-3 text-amber-500" />
+                  <Sun className="h-3 w-3 text-amber-500 dark:text-amber-400" />
                 )}
               </span>
             </button>
@@ -429,36 +429,36 @@ export default function Settings({ showToast, showConfirm }) {
               <h3 className="text-sm font-semibold">{section.title}</h3>
             </div>
             <div className={`space-y-0.5 overflow-hidden rounded-2xl border ${
-              isDanger ? 'border-red-200/80' : 'border-gray-200/80'
+              isDanger ? 'border-red-200/80 dark:border-red-900/50' : 'border-gray-200/80 dark:border-gray-700/80'
             }`}>
               {section.items.map((item) => {
                 const ItemIcon = item.icon
                 return (
                   <div
                     key={item.id}
-                    className={`flex items-center justify-between gap-4 bg-white px-4 py-3.5 sm:px-5 ${
-                      isDanger ? 'hover:bg-red-50/50' : 'hover:bg-gray-50/50'
+                    className={`flex items-center justify-between gap-4 bg-white px-4 py-3.5 sm:px-5 dark:bg-gray-900 ${
+                      isDanger ? 'hover:bg-red-50/50 dark:hover:bg-red-950/30' : 'hover:bg-gray-50/50 dark:hover:bg-gray-800/50'
                     } transition-colors ${
                       section.items.indexOf(item) < section.items.length - 1
-                        ? `border-b ${isDanger ? 'border-red-100/50' : 'border-gray-100'}`
+                        ? `border-b ${isDanger ? 'border-red-100/50 dark:border-red-900/30' : 'border-gray-100 dark:border-gray-700/50'}`
                         : ''
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl ${
-                        isDanger ? 'bg-red-100' : 'bg-gray-100'
+                        isDanger ? 'bg-red-100 dark:bg-red-900/40' : 'bg-gray-100 dark:bg-gray-800'
                       }`}>
                         <ItemIcon className={`h-4 w-4 ${
-                          isDanger ? 'text-red-600' : 'text-gray-600'
+                          isDanger ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'
                         }`} />
                       </div>
                       <div className="min-w-0">
                         <p className={`text-sm font-medium ${
-                          isDanger ? 'text-red-800' : 'text-gray-900'
+                          isDanger ? 'text-red-800 dark:text-red-300' : 'text-gray-900 dark:text-gray-100'
                         }`}>
                           {item.label}
                         </p>
-                        <p className="text-xs text-gray-500 truncate">{item.description}</p>
+                        <p className="text-xs text-gray-500 truncate dark:text-gray-400">{item.description}</p>
                       </div>
                     </div>
                     <div className="flex-shrink-0">
@@ -475,13 +475,13 @@ export default function Settings({ showToast, showConfirm }) {
       {/* Categories */}
       {settingsSections.find((s) => s.id === 'categories') && (
         <div>
-          <div className="mb-3 flex items-center gap-2 text-gray-700">
+          <div className="mb-3 flex items-center gap-2 text-gray-700 dark:text-gray-300">
             <Tag className="h-4 w-4" />
             <h3 className="text-sm font-semibold">Expense Categories</h3>
           </div>
-          <div className="overflow-hidden rounded-2xl border border-gray-200/80">
+          <div className="overflow-hidden rounded-2xl border border-gray-200/80 dark:border-gray-700/80">
             {/* Add new category */}
-            <div className="flex items-center gap-2 border-b border-gray-100 bg-white px-4 py-3">
+            <div className="flex items-center gap-2 border-b border-gray-100 bg-white px-4 py-3 dark:border-gray-700/50 dark:bg-gray-900">
               <input
                 type="text"
                 value={newCategoryName}
@@ -503,16 +503,16 @@ export default function Settings({ showToast, showConfirm }) {
             {/* Category list */}
             {categoriesLoading ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                <Loader2 className="h-5 w-5 animate-spin text-gray-400 dark:text-gray-500" />
               </div>
             ) : categories.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-gray-400">
+              <div className="px-4 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
                 No categories yet. Add one above.
               </div>
             ) : (
-              <div className="divide-y divide-gray-100">
+              <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
                 {categories.map((cat) => (
-                  <div key={cat.id} className="group flex items-center gap-2 bg-white px-4 py-2.5 transition-colors hover:bg-gray-50/50">
+                  <div key={cat.id} className="group flex items-center gap-2 bg-white px-4 py-2.5 transition-colors hover:bg-gray-50/50 dark:bg-gray-900 dark:hover:bg-gray-800/50">
                     {editingCategory?.id === cat.id ? (
                       <>
                         <input
@@ -543,8 +543,8 @@ export default function Settings({ showToast, showConfirm }) {
                       </>
                     ) : (
                       <>
-                        <Tag className="h-4 w-4 flex-shrink-0 text-gray-400" />
-                        <span className="flex-1 text-sm font-medium text-gray-900">{cat.name}</span>
+                        <Tag className="h-4 w-4 flex-shrink-0 text-gray-400 dark:text-gray-500" />
+                        <span className="flex-1 text-sm font-medium text-gray-900 dark:text-gray-100">{cat.name}</span>
                         <button
                           onClick={() => handleStartEditCategory(cat)}
                           className="btn-ghost rounded-lg p-1.5 text-gray-400 opacity-0 transition-all hover:text-indigo-600 group-hover:opacity-100"
@@ -570,7 +570,7 @@ export default function Settings({ showToast, showConfirm }) {
       )}
 
       {/* App Info */}
-      <div className="border-t border-gray-100 pt-4 text-center text-xs text-gray-400">
+      <div className="border-t border-gray-100 pt-4 text-center text-xs text-gray-400 dark:border-gray-700/50 dark:text-gray-500">
         Tour Expense Tracker v1.0 · All data stored securely in Supabase
       </div>
     </div>
