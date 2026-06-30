@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { CURRENCIES, DEFAULT_CURRENCY, formatAmount } from './currency'
 
 const SettingsContext = createContext(null)
@@ -12,11 +12,14 @@ export function SettingsProvider({ children }) {
     }
   })
 
+  const themeTimerRef = useRef(null)
+
   const [darkMode, setDarkModeState] = useState(() => {
     try {
-      return localStorage.getItem('app_dark_mode') === 'true'
+      const stored = localStorage.getItem('app_dark_mode')
+      return stored === null ? true : stored === 'true'
     } catch {
-      return false
+      return true
     }
   })
 
@@ -28,10 +31,21 @@ export function SettingsProvider({ children }) {
   }, [])
 
   const setDarkMode = useCallback((val) => {
+    // Clear any pending timer from rapid toggles
+    if (themeTimerRef.current) clearTimeout(themeTimerRef.current)
+
+    // Add transition class for smooth theme switch
+    document.documentElement.classList.add('theme-transition')
+
     setDarkModeState(val)
     try {
       localStorage.setItem('app_dark_mode', val ? 'true' : 'false')
     } catch {}
+
+    // Remove transition class after animation completes
+    themeTimerRef.current = setTimeout(() => {
+      document.documentElement.classList.remove('theme-transition')
+    }, 350)
   }, [])
 
   // Apply dark mode class to html element

@@ -54,11 +54,11 @@ export default function ExpenseSharingEditor({ members, managerId, expenseAmount
   const perPersonShare = activeShareCount > 0 ? remainingAmount / activeShareCount : 0
 
   return (
-    <div className="space-y-3 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4 dark:border-indigo-800/50 dark:bg-indigo-950/30">
+    <div className="space-y-3 rounded-xl border border-emerald-100 bg-emerald-50/50 p-4 dark:border-emerald-800/50 dark:bg-emerald-950/30">
       <div className="flex items-center gap-2">
-        <Users className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+        <Users className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
         <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Expense Sharing</span>
-        <span className="ml-auto badge bg-indigo-100 text-indigo-700 text-[10px] dark:bg-indigo-900/50 dark:text-indigo-300">
+        <span className="ml-auto badge bg-emerald-100 text-emerald-700 text-[10px] dark:bg-emerald-900/50 dark:text-emerald-300">
           {excludedCount > 0 ? `${members.length - excludedCount} sharers` : `${members.length} equal`}
         </span>
       </div>
@@ -82,7 +82,7 @@ export default function ExpenseSharingEditor({ members, managerId, expenseAmount
                 <span className={`font-medium truncate ${s.type === 'excluded' ? 'line-through' : ''} dark:text-gray-200`}>
                   {m.name}
                 </span>
-                {isManager && <Crown className="h-3 w-3 text-indigo-500 flex-shrink-0 dark:text-indigo-400" />}
+                {isManager && <Crown className="h-3 w-3 text-emerald-500 flex-shrink-0 dark:text-emerald-400" />}
               </div>
 
               {/* Share type selector */}
@@ -92,7 +92,7 @@ export default function ExpenseSharingEditor({ members, managerId, expenseAmount
                   onClick={() => setShareType(m.id, 'equal')}
                   className={`rounded-lg px-2 py-1 text-[11px] font-medium transition-colors ${
                     s.type === 'equal'
-                      ? 'bg-indigo-100 text-indigo-700'
+                      ? 'bg-emerald-100 text-emerald-700'
                       : 'text-gray-400 hover:text-gray-600'
                   }`}
                 >
@@ -144,26 +144,26 @@ export default function ExpenseSharingEditor({ members, managerId, expenseAmount
       {/* Sharing summary */}
       {amount > 0 && (
         <div className="rounded-xl bg-white border border-gray-200 px-3 py-2.5 text-xs space-y-1 dark:bg-gray-800 dark:border-gray-700">
-          <div className="flex justify-between text-gray-500">
+          <div className="flex justify-between text-gray-500 dark:text-gray-300">
             <span>Total expense</span>
-            <span className="font-medium text-gray-700">{Number(amount).toFixed(2)}</span>
+            <span className="font-medium text-gray-700 dark:text-gray-100">{Number(amount).toFixed(2)}</span>
           </div>
           {totalFixed > 0 && (
-            <div className="flex justify-between text-gray-500">
+            <div className="flex justify-between text-gray-500 dark:text-gray-300">
               <span>Fixed shares ({fixedShares.length} member{fixedShares.length > 1 ? 's' : ''})</span>
-              <span className="font-medium text-amber-700">−{totalFixed.toFixed(2)}</span>
+              <span className="font-medium text-amber-700 dark:text-amber-300">−{totalFixed.toFixed(2)}</span>
             </div>
           )}
           {excludedCount > 0 && (
-            <div className="flex justify-between text-gray-500">
+            <div className="flex justify-between text-gray-500 dark:text-gray-300">
               <span>Excluded ({excludedCount})</span>
-              <span className="font-medium text-gray-400">−</span>
+              <span className="font-medium text-gray-400 dark:text-gray-300">−</span>
             </div>
           )}
           {activeShareCount > 0 && (
-            <div className="flex justify-between border-t border-gray-100 pt-1 text-gray-700">
+            <div className="flex justify-between border-t border-gray-100 dark:border-gray-600 pt-1 text-gray-700 dark:text-gray-200">
               <span>Remaining ÷ {activeShareCount} equal</span>
-              <span className="font-semibold text-gray-900">{perPersonShare.toFixed(2)} each</span>
+              <span className="font-semibold text-gray-900 dark:text-gray-100">{perPersonShare.toFixed(2)} each</span>
             </div>
           )}
         </div>

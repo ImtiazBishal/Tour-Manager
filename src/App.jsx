@@ -37,6 +37,7 @@ import {
   Check,
   Clock,
   HelpCircle,
+  Sparkles,
   Bell,
   Download,
   Settings,
@@ -53,6 +54,8 @@ import { useBulkActions } from './hooks/useBulkActions'
 import { useAddPerson } from './hooks/useAddPerson'
 import { useAddCategory } from './hooks/useAddCategory'
 import ExpenseSharingEditor from './components/ExpenseSharingEditor'
+import Modal from './components/Modal'
+import TourOverlay from './components/TourOverlay'
 
 /* ─── Constants ─── */
 
@@ -114,9 +117,61 @@ export default function App() {
   const [fabOpen, setFabOpen] = useState(false)
   const [fabAction, setFabAction] = useState(null)
 
+
+
   // Data version tracker - increment to signal all pages to refresh
   const [dataVersion, setDataVersion] = useState(0)
   const onDataChange = useCallback(() => setDataVersion((v) => v + 1), [])
+
+  // PWA install prompt state
+  const [deferredPrompt, setDeferredPrompt] = useState(null)
+  const [showInstallBanner, setShowInstallBanner] = useState(false)
+  const installRejectedRef = useRef(false)
+
+  // Tour onboarding state
+  const [showTour, setShowTour] = useState(() => {
+    return localStorage.getItem('tour_done') !== 'true'
+  })
+
+  const completeTour = useCallback(() => {
+    setShowTour(false)
+    try { localStorage.setItem('tour_done', 'true') } catch {}
+  }, [])
+
+  const restartTour = useCallback(() => {
+    try { localStorage.removeItem('tour_done') } catch {}
+    setShowTour(true)
+  }, [])
+
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault()
+      setDeferredPrompt(e)
+      if (!installRejectedRef.current) {
+        setShowInstallBanner(true)
+      }
+    }
+    window.addEventListener('beforeinstallprompt', handler)
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, []) // empty deps — never re-runs
+
+  async function handleInstall() {
+    if (!deferredPrompt) return
+    deferredPrompt.prompt()
+    const result = await deferredPrompt.userChoice
+    if (result.outcome === 'accepted') {
+      setShowInstallBanner(false)
+      setDeferredPrompt(null)
+    } else {
+      setShowInstallBanner(false)
+      setInstallRejected(true)
+    }
+  }
+
+  function handleDismissInstall() {
+    setShowInstallBanner(false)
+    installRejectedRef.current = true
+  }
 
   function closeFabAction() {
     setFabAction(null)
@@ -137,7 +192,7 @@ export default function App() {
               {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 shadow-sm">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 shadow-sm">
                 <Wallet className="h-4 w-4 text-white" />
               </div>
               <h1 className="text-base font-bold text-gray-900 sm:text-lg dark:text-gray-100">Tour Expense Tracker</h1>
@@ -152,14 +207,14 @@ export default function App() {
                   onClick={() => setActiveTab(tab.key)}
                   className={`relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-200 ${
                     activeTab === tab.key
-                      ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'
+                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100'
                   }`}
                 >
                   <Icon className="h-4 w-4" />
                   {tab.label}
                   {activeTab === tab.key && (
-                    <span className="absolute -bottom-[9px] left-1/2 h-0.5 w-6 -translate-x-1/2 rounded-full bg-indigo-600 dark:bg-indigo-400" />
+                    <span className="absolute -bottom-[9px] left-1/2 h-0.5 w-6 -translate-x-1/2 rounded-full bg-emerald-600 dark:bg-emerald-400" />
                   )}
                 </button>
               )
@@ -181,21 +236,21 @@ export default function App() {
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 className={`relative flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-xl px-2 py-2 transition-all duration-200 ${
-                  isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300'
+                  isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300'
                 }`}
               >
                 <div className={`relative rounded-xl p-1.5 transition-all duration-200 ${
-                  isActive ? 'bg-indigo-50 dark:bg-indigo-900/40' : ''
+                  isActive ? 'bg-emerald-50 dark:bg-emerald-900/40' : ''
                 }`}>
                   <Icon className={`h-5 w-5 transition-all duration-200 ${
                     isActive ? 'scale-110' : ''
                   }`} />
                   {isActive && (
-                    <span className="absolute -bottom-0.5 left-1/2 h-0.5 w-4 -translate-x-1/2 rounded-full bg-indigo-600 dark:bg-indigo-400" />
+                    <span className="absolute -bottom-0.5 left-1/2 h-0.5 w-4 -translate-x-1/2 rounded-full bg-emerald-600 dark:bg-emerald-400" />
                   )}
                 </div>
                 <span className={`text-[10px] font-medium leading-tight transition-all duration-200 ${
-                  isActive ? 'font-semibold text-indigo-600 dark:text-indigo-400' : ''
+                  isActive ? 'font-semibold text-emerald-600 dark:text-emerald-400' : ''
                 }`}>
                   {tab.label}
                 </span>
@@ -207,12 +262,14 @@ export default function App() {
 
       {/* Desktop Left Sidebar */}
       <div className="fixed left-0 top-0 z-40 hidden h-full flex-col items-center border-r border-gray-200/80 bg-white/95 shadow-sm backdrop-blur-lg sm:flex sm:w-14 sm:pt-[3.5rem] sm:pb-4 dark:border-gray-700/80 dark:bg-gray-900/95">
+        {/* Gradient accent strip on the left edge */}
+        <div className="absolute left-0 top-0 h-full w-0.5 bg-gradient-to-r from-emerald-500 to-transparent dark:from-emerald-400" />
         <div className="flex flex-1 flex-col items-center gap-2 pt-3">
           <button
             onClick={() => setActiveTab('members')}
             className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 ${
               activeTab === 'members'
-                ? 'bg-indigo-100 text-indigo-600 shadow-sm dark:bg-indigo-900/50 dark:text-indigo-400'
+                ? 'bg-emerald-100 text-emerald-600 shadow-sm dark:bg-emerald-900/50 dark:text-emerald-400'
                 : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300'
             }`}
             title="Members"
@@ -223,7 +280,7 @@ export default function App() {
             onClick={() => setActiveTab('settings')}
             className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 ${
               activeTab === 'settings'
-                ? 'bg-indigo-100 text-indigo-600 shadow-sm dark:bg-indigo-900/50 dark:text-indigo-400'
+                ? 'bg-emerald-100 text-emerald-600 shadow-sm dark:bg-emerald-900/50 dark:text-emerald-400'
                 : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300'
             }`}
             title="Settings"
@@ -234,7 +291,7 @@ export default function App() {
             onClick={() => setActiveTab('help')}
             className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 ${
               activeTab === 'help'
-                ? 'bg-indigo-100 text-indigo-600 shadow-sm dark:bg-indigo-900/50 dark:text-indigo-400'
+                ? 'bg-emerald-100 text-emerald-600 shadow-sm dark:bg-emerald-900/50 dark:text-emerald-400'
                 : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300'
             }`}
             title="Help Guide"
@@ -243,15 +300,29 @@ export default function App() {
           </button>
         </div>
         <div className="py-2">
-          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-sm">
+          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-sm">
             <Wallet className="h-4 w-4 text-white" />
           </div>
         </div>
       </div>
 
+      {/* Page Background - mountain image with light/dark overlays */}
+      <div className="pointer-events-none fixed inset-0 z-0" aria-hidden="true">
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-50 blur-sm scale-105"
+          style={{
+            backgroundImage: `url(https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=80)`,
+          }}
+        />
+        {/* Light mode gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-white/80 via-white/40 to-white/85 dark:hidden" />
+        {/* Dark mode gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-gray-950/40 via-gray-950/15 to-gray-950/50 hidden dark:block" />
+      </div>
+
       {/* Page Content */}
-      <main className="mx-auto max-w-5xl px-4 py-5 sm:py-6 sm:ml-14">
-        <div className="animate-fade-in" key={activeTab}>
+      <main className="mx-auto max-w-5xl px-4 py-5 sm:py-6 sm:ml-14 relative z-10">
+        <div className="animate-page-enter" key={activeTab}>
           {activeTab === 'dashboard' && (
             <Dashboard showToast={showToast} dataVersion={dataVersion} />
           )}
@@ -268,13 +339,13 @@ export default function App() {
             <Settlement showToast={showToast} dataVersion={dataVersion} />
           )}
           {activeTab === 'help' && (
-            <HelpGuide />
+            <HelpGuide onRestartTour={restartTour} />
           )}
           {activeTab === 'members' && (
             <Members showToast={showToast} showConfirm={showConfirm} dataVersion={dataVersion} />
           )}
           {activeTab === 'settings' && (
-            <SettingsPage showToast={showToast} showConfirm={showConfirm} />
+            <SettingsPage showToast={showToast} showConfirm={showConfirm} onRestartTour={restartTour} />
           )}
         </div>
       </main>
@@ -282,6 +353,19 @@ export default function App() {
       {/* Toast Notification */}
       {toast && (
         <Toast toast={toast} onDismiss={dismissToast} />
+      )}
+
+      {/* PWA Install Banner */}
+      {showInstallBanner && (
+        <InstallBanner
+          onInstall={handleInstall}
+          onDismiss={handleDismissInstall}
+        />
+      )}
+
+      {/* Tour Onboarding */}
+      {showTour && (
+        <TourOverlay onClose={completeTour} />
       )}
 
       {/* Confirm Dialog */}
@@ -308,11 +392,12 @@ export default function App() {
 
         {/* Speed Dial Items */}
         {fabOpen && (
-          <div className="fixed bottom-36 right-4 z-50 flex flex-col items-end gap-3">
+          <div className="fixed bottom-36 right-4 z-50 flex flex-col items-end gap-2.5">
             {[
-              { key: 'expense', label: 'Add Expense', icon: Receipt, bg: 'bg-indigo-500', ring: 'ring-indigo-100' },
+              { key: 'expense', label: 'Add Expense', icon: Receipt, bg: 'bg-teal-500', ring: 'ring-teal-100' },
               { key: 'advance', label: 'Add Advance', icon: Banknote, bg: 'bg-emerald-500', ring: 'ring-emerald-100' },
               { key: 'contribution', label: 'Add Contribution', icon: HeartHandshake, bg: 'bg-rose-500', ring: 'ring-rose-100' },
+              { key: 'member', label: 'Add Member', icon: Users, bg: 'bg-amber-500' },
               { key: 'help', label: 'Help Guide', icon: HelpCircle, bg: 'bg-gray-500', ring: 'ring-gray-100' },
             ].map((item, idx) => {
               const Icon = item.icon
@@ -327,14 +412,14 @@ export default function App() {
                       setFabAction(item.key)
                     }
                   }}
-                  className="animate-slide-up flex items-center gap-3"
+                  className="animate-fab-slide-up flex items-center gap-2"
                   style={{ animationDelay: `${idx * 60}ms` }}
                 >
-                  <span className="rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-lg ring-1 ring-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600">
+                  <span className="rounded-lg bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-gray-700 shadow-md ring-1 ring-gray-200 backdrop-blur-sm dark:bg-gray-800/90 dark:text-gray-200 dark:ring-gray-600">
                     {item.label}
                   </span>
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${item.bg} text-white shadow-xl ring-4 ${item.ring}`}>
-                    <Icon className="h-5 w-5" />
+                  <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${item.bg} text-white transition-transform hover:scale-110 active:scale-95`}>
+                    <Icon className="h-4 w-4" />
                   </div>
                 </button>
               )
@@ -345,14 +430,14 @@ export default function App() {
         {/* FAB Button */}
         <button
           onClick={() => setFabOpen(!fabOpen)}
-          className={`fixed bottom-20 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-xl transition-all duration-300 ${
+          className={`fixed bottom-20 right-4 z-50 flex h-11 w-11 items-center justify-center rounded-2xl shadow-lg transition-all duration-300 ${
             fabOpen
               ? 'bg-gray-700 rotate-45 scale-110 shadow-gray-700/30 dark:bg-gray-600'
-              : 'bg-indigo-600 shadow-indigo-500/40 hover:shadow-indigo-500/60 hover:scale-105 active:scale-95 dark:bg-indigo-500'
+              : 'bg-emerald-600 shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:scale-105 active:scale-95 dark:bg-emerald-500'
           }`}
           aria-label={fabOpen ? 'Close menu' : 'Quick actions'}
         >
-          <Plus className="h-6 w-6 text-white transition-transform duration-300" />
+          <Plus className="h-5 w-5 text-white transition-transform duration-300" />
         </button>
       </div>
 
@@ -375,6 +460,12 @@ export default function App() {
         onSuccess={onDataChange}
         showToast={showToast}
       />
+      <QuickAddMemberModal
+        open={fabAction === 'member'}
+        onClose={closeFabAction}
+        onSuccess={onDataChange}
+        showToast={showToast}
+      />
     </div>
     </SettingsProvider>
   )
@@ -388,7 +479,7 @@ function MobileNav({ activeTab, onTabChange, onClose }) {
   const { darkMode, setDarkMode } = useSettings()
 
   return (
-    <nav className="animate-slide-up border-t border-gray-100 bg-white px-4 pb-3 pt-2 sm:hidden dark:border-gray-700 dark:bg-gray-900">
+    <nav className="animate-slide-up border-t border-gray-100 bg-white px-4 pb-3 pt-2 sm:hidden dark:border-gray-700 dark:bg-gray-900/95 dark:backdrop-blur-lg">
       {TABS.map((tab) => {
         const Icon = tab.icon
         return (
@@ -400,14 +491,14 @@ function MobileNav({ activeTab, onTabChange, onClose }) {
             }}
             className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
               activeTab === tab.key
-                ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'
+                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
                 : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800'
             }`}
           >
-            <Icon className={`h-5 w-5 ${activeTab === tab.key ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500'}`} />
+            <Icon className={`h-5 w-5 ${activeTab === tab.key ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400 dark:text-gray-500'}`} />
             {tab.label}
             {activeTab === tab.key && (
-              <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 dark:bg-indigo-500">
+              <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 dark:bg-emerald-500">
                 <CheckCircle2 className="h-3 w-3 text-white" />
               </span>
             )}
@@ -423,20 +514,20 @@ function MobileNav({ activeTab, onTabChange, onClose }) {
         >
           <div className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors ${
             darkMode
-              ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400'
+              ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400'
               : 'bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400'
           }`}>
             {darkMode ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
           </div>
           <span className="flex-1 text-left">{darkMode ? 'Dark Mode' : 'Light Mode'}</span>
           <div className={`relative h-5 w-9 rounded-full transition-colors ${
-            darkMode ? 'bg-indigo-600' : 'bg-gray-300'
+            darkMode ? 'bg-emerald-600' : 'bg-gray-300'
           }`}>
             <span className={`absolute left-0.5 top-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-white shadow-sm transition-transform ${
               darkMode ? 'translate-x-4' : 'translate-x-0'
             }`}>
               {darkMode ? (
-                <Moon className="h-2.5 w-2.5 text-indigo-600" />
+                <Moon className="h-2.5 w-2.5 text-emerald-600" />
               ) : (
                 <Sun className="h-2.5 w-2.5 text-amber-500" />
               )}
@@ -487,6 +578,56 @@ function Toast({ toast, onDismiss }) {
 }
 
 /* ══════════════════════════════════════════════════
+   PWA INSTALL BANNER
+   ══════════════════════════════════════════════════ */
+
+function InstallBanner({ onInstall, onDismiss }) {
+  return (
+    <div className="fixed bottom-20 left-4 right-4 z-50 sm:bottom-6 sm:left-auto sm:right-6 sm:w-96">
+      <div className="animate-slide-up rounded-2xl border border-emerald-200/80 bg-white/95 px-4 py-3.5 shadow-2xl backdrop-blur-xl dark:border-emerald-800/60 dark:bg-gray-900/95">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-600 shadow-sm">
+            <svg className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2" />
+              <path d="M2 8h20" />
+              <circle cx="18" cy="14" r="1.5" fill="currentColor" stroke="none" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Install Tour Tracker</p>
+            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+              Add to your home screen for quick access to manage tour expenses offline.
+            </p>
+          </div>
+          <button
+            onClick={onDismiss}
+            className="btn-ghost -mr-1 -mt-1 flex h-7 w-7 items-center justify-center rounded-lg p-0"
+            aria-label="Dismiss install prompt"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="mt-3 flex gap-2">
+          <button
+            onClick={onDismiss}
+            className="btn-ghost flex-1 py-2 text-xs"
+          >
+            Not now
+          </button>
+          <button
+            onClick={onInstall}
+            className="btn-primary flex-1 py-2 text-xs"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Install App
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ══════════════════════════════════════════════════
    CONFIRM DIALOG
    ══════════════════════════════════════════════════ */
 
@@ -497,7 +638,7 @@ function ConfirmDialog({ message, onConfirm, onCancel }) {
         className="fixed inset-0 bg-black/40 backdrop-blur-sm dark:bg-black/60"
         onClick={onCancel}
       />
-      <div className="animate-scale-in relative z-10 w-full max-w-sm rounded-2xl border border-gray-200/80 bg-white/95 backdrop-blur-md p-6 shadow-2xl dark:border-gray-700/80 dark:bg-gray-900/95 dark:backdrop-blur-md">
+      <div className="animate-scale-in relative z-10 w-full max-w-sm rounded-2xl border border-gray-200/80 bg-white/90 backdrop-blur-lg p-6 shadow-2xl dark:border-gray-700/40 dark:bg-gray-900/40 dark:backdrop-blur-lg">
         <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 dark:bg-red-900/50">
           <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
         </div>
@@ -628,7 +769,7 @@ function Dashboard({ showToast, dataVersion }) {
   if (error) return <ErrorBox msg={error} />
 
   const cards = [
-    { label: 'Total Expenses', value: formatAmount(stats.totalExpenses), icon: Receipt, color: 'text-indigo-600', bg: 'bg-indigo-100' },
+    { label: 'Total Expenses', value: formatAmount(stats.totalExpenses), icon: Receipt, color: 'text-teal-600', bg: 'bg-teal-100' },
     { label: 'Advances Received', value: formatAmount(stats.totalAdvances), icon: Banknote, color: 'text-emerald-600', bg: 'bg-emerald-100' },
     { label: 'Net Spending', value: formatAmount(stats.netSpending), icon: TrendingDown, color: 'text-orange-600', bg: 'bg-orange-100' },
     { label: 'People Who Owe', value: String(stats.peopleOwing), icon: Users, color: 'text-rose-600', bg: 'bg-rose-100' },
@@ -637,7 +778,7 @@ function Dashboard({ showToast, dataVersion }) {
   return (
     <div className="space-y-5 sm:space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900 sm:text-2xl dark:text-gray-100">Dashboard</h2>
+        <h2 className="text-xl font-bold text-white sm:text-2xl">Dashboard</h2>
         <button
           onClick={fetchDashboardData}
           className="btn-ghost text-xs sm:text-sm"
@@ -673,10 +814,10 @@ function Dashboard({ showToast, dataVersion }) {
 
       {/* Today's Activity Summary */}
       <div className="grid grid-cols-3 gap-3 sm:gap-4">
-        <div className="animate-slide-up rounded-2xl border border-indigo-100 bg-gradient-to-b from-indigo-50/50 to-white p-3 sm:p-4 dark:border-indigo-800/50 dark:from-indigo-950/30 dark:to-gray-900" style={{ animationDelay: '0ms' }}>
+        <div className="animate-slide-up rounded-2xl border border-teal-100 bg-gradient-to-b from-teal-50/50 to-white/80 p-3 sm:p-4 backdrop-blur-lg dark:border-teal-800/40 dark:from-teal-950/20 dark:to-gray-900/40" style={{ animationDelay: '0ms' }}>
           <div className="flex items-center gap-2 mb-1.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900/50 sm:h-8 sm:w-8">
-              <Receipt className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 sm:h-4 sm:w-4" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-100 dark:bg-teal-900/50 sm:h-8 sm:w-8">
+              <Receipt className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400 sm:h-4 sm:w-4" />
             </div>
             <span className="text-[11px] font-medium text-gray-500 sm:text-xs dark:text-gray-400">Today's Expenses</span>
           </div>
@@ -684,7 +825,7 @@ function Dashboard({ showToast, dataVersion }) {
             {todayStats.expenses > 0 ? `${formatAmount(todayStats.expenses)}` : '—'}
           </p>
         </div>
-        <div className="animate-slide-up rounded-2xl border border-emerald-100 bg-gradient-to-b from-emerald-50/50 to-white p-3 sm:p-4 dark:border-emerald-800/50 dark:from-emerald-950/30 dark:to-gray-900" style={{ animationDelay: '60ms' }}>
+        <div className="animate-slide-up rounded-2xl border border-emerald-100 bg-gradient-to-b from-emerald-50/50 to-white/80 p-3 sm:p-4 backdrop-blur-lg dark:border-emerald-800/40 dark:from-emerald-950/20 dark:to-gray-900/40" style={{ animationDelay: '60ms' }}>
           <div className="flex items-center gap-2 mb-1.5">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 sm:h-8 sm:w-8 dark:bg-emerald-900/50">
               <Banknote className="h-3.5 w-3.5 text-emerald-600 sm:h-4 sm:w-4 dark:text-emerald-400" />
@@ -695,7 +836,7 @@ function Dashboard({ showToast, dataVersion }) {
             {todayStats.advances > 0 ? `${formatAmount(todayStats.advances)}` : '—'}
           </p>
         </div>
-        <div className="animate-slide-up rounded-2xl border border-rose-100 bg-gradient-to-b from-rose-50/50 to-white p-3 sm:p-4 dark:border-rose-800/50 dark:from-rose-950/30 dark:to-gray-900" style={{ animationDelay: '120ms' }}>
+        <div className="animate-slide-up rounded-2xl border border-rose-100 bg-gradient-to-b from-rose-50/50 to-white/80 p-3 sm:p-4 backdrop-blur-lg dark:border-rose-800/40 dark:from-rose-950/20 dark:to-gray-900/40" style={{ animationDelay: '120ms' }}>
           <div className="flex items-center gap-2 mb-1.5">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-100 sm:h-8 sm:w-8 dark:bg-rose-900/50">
               <HeartHandshake className="h-3.5 w-3.5 text-rose-600 sm:h-4 sm:w-4 dark:text-rose-400" />
@@ -712,13 +853,13 @@ function Dashboard({ showToast, dataVersion }) {
       {lastTransactions.length > 0 && (
         <div className="card animate-slide-up" style={{ animationDelay: '150ms' }}>
           <div className="mb-3 flex items-center gap-2">
-            <Clock className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
+            <Clock className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
             <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Latest Activity</h3>
           </div>
           <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
             {lastTransactions.map((t, idx) => {
               const typeConfig = {
-                expense: { icon: Receipt, bg: 'bg-indigo-100', color: 'text-indigo-600', label: 'Expense', darkBg: 'dark:bg-indigo-900/50', darkColor: 'dark:text-indigo-400' },
+                expense: { icon: Receipt, bg: 'bg-teal-100', color: 'text-teal-600', label: 'Expense', darkBg: 'dark:bg-teal-900/50', darkColor: 'dark:text-teal-400' },
                 advance: { icon: Banknote, bg: 'bg-emerald-100', color: 'text-emerald-600', label: 'Advance', darkBg: 'dark:bg-emerald-900/50', darkColor: 'dark:text-emerald-400' },
                 contribution: { icon: HeartHandshake, bg: 'bg-rose-100', color: 'text-rose-600', label: 'Contribution', darkBg: 'dark:bg-rose-900/50', darkColor: 'dark:text-rose-400' },
               }
@@ -765,14 +906,14 @@ function Dashboard({ showToast, dataVersion }) {
                 <div key={cat.name}>
                   <div className="mb-1 flex items-center justify-between text-sm">
                     <span className="flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
-                      {Icon ? <Icon className="h-4 w-4 text-indigo-500 dark:text-indigo-400" /> : <Package className="h-4 w-4 text-gray-400 dark:text-gray-500" />}
+                      {Icon ? <Icon className="h-4 w-4 text-teal-500 dark:text-teal-400" /> : <Package className="h-4 w-4 text-gray-400 dark:text-gray-500" />}
                       <span className="text-xs sm:text-sm">{cat.name}</span>
                     </span>
                     <span className="font-semibold text-gray-900 text-xs sm:text-sm dark:text-gray-100">{formatAmount(cat.amount)}</span>
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-indigo-400 transition-all duration-700 ease-out"
+                      className="h-full rounded-full bg-gradient-to-r from-teal-500 to-teal-400 transition-all duration-700 ease-out"
                       style={{ width: `${pct}%` }}
                     />
                   </div>
@@ -791,7 +932,7 @@ function Dashboard({ showToast, dataVersion }) {
             {recentExpenses.map((exp, idx) => (
               <div
                 key={exp.id}
-                className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-3 transition-colors hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800"
+                className="flex items-center justify-between rounded-xl bg-gray-50/80 px-3 py-3 transition-colors hover:bg-gray-100/80 backdrop-blur-lg dark:bg-gray-800/30 dark:hover:bg-gray-800/50 dark:backdrop-blur-lg"
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">{exp.description}</p>
@@ -839,7 +980,7 @@ function Dashboard({ showToast, dataVersion }) {
             const bal = Number(b.balance)
             const paid = Number(b.advance_paid) + Number(b.contribution_for_them) + Number(b.direct_paid)
             return (
-              <div key={b.member_name} className="rounded-xl border border-gray-100 bg-gray-50/50 dark:bg-gray-800/50 p-3 dark:border-gray-700/60">
+              <div key={b.member_name} className="rounded-xl border border-gray-100/80 bg-gray-50/60 dark:bg-gray-800/40 p-3 dark:border-gray-700/40 dark:backdrop-blur-lg">
                 <div className="mb-2 flex items-center justify-between">
                   <span className="font-medium text-gray-900 text-sm dark:text-gray-100">{b.member_name}</span>
                   <BalanceBadge balance={bal} formatAmount={formatAmount} />
@@ -853,7 +994,6 @@ function Dashboard({ showToast, dataVersion }) {
           })}
         </div>
       </div>
-
     </div>
   )
 }
@@ -880,7 +1020,7 @@ function Expenses({ showToast, showConfirm, dataVersion }) {
   const [error, setError] = useState(null)
   const [form, setForm] = useState(EMPTY_EXPENSE_FORM)
   const [errors, setErrors] = useState({})
-  const [showForm, setShowForm] = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
   const [editingRecord, setEditingRecord] = useState(null)
   const isEditing = editingRecord !== null
   const {
@@ -1010,7 +1150,7 @@ function Expenses({ showToast, showConfirm, dataVersion }) {
       paid_by: record.paid_by,
     })
     setErrors({})
-    setShowForm(true)
+    setModalOpen(true)
     // Load existing expense shares
     loadExpenseShares(record.id)
   }
@@ -1019,7 +1159,7 @@ function Expenses({ showToast, showConfirm, dataVersion }) {
     setEditingRecord(null)
     setForm(EMPTY_EXPENSE_FORM)
     setErrors({})
-    setShowForm(false)
+    setModalOpen(false)
     setExpenseShares({})
   }
 
@@ -1139,30 +1279,23 @@ function Expenses({ showToast, showConfirm, dataVersion }) {
   return (
     <div className="space-y-5 sm:space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900 sm:text-2xl dark:text-gray-100">Expenses</h2>
+        <h2 className="text-xl font-bold text-white sm:text-2xl">Expenses</h2>
         <button
-          onClick={() => {
-            if (editingRecord) {
-              cancelEditing()
-            } else {
-              setShowForm(!showForm)
-            }
-          }}
+          onClick={() => setModalOpen(true)}
           className="btn-primary px-4 py-2.5 text-xs sm:text-sm sm:px-5 sm:py-3"
         >
-          {editingRecord || showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-          {editingRecord ? 'Cancel' : showForm ? 'Cancel' : 'Add Expense'}
+          <Plus className="h-4 w-4" />
+          Add Expense
         </button>
         <button
           onClick={() => { setBulkMode(!bulkMode); if (bulkMode) setSelectedIds(new Set()) }}
-          className={`btn-ghost px-3 py-2.5 text-xs sm:text-sm sm:px-4 sm:py-3 ${bulkMode ? 'bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200 dark:bg-indigo-900/50 dark:text-indigo-300 dark:ring-indigo-700/50' : ''}`}
+          className={`btn-ghost px-3 py-2.5 text-xs sm:text-sm sm:px-4 sm:py-3 ${bulkMode ? 'bg-teal-100 text-teal-700 ring-1 ring-teal-200 dark:bg-teal-900/50 dark:text-teal-300 dark:ring-teal-700/50' : ''}`}
         >
           {bulkMode ? 'Done' : 'Select'}
         </button>
       </div>
 
-      {showForm && (
-        <FormCard title={editingRecord ? 'Edit Expense' : 'Add Expense'}>
+      <Modal open={modalOpen} onClose={cancelEditing} title={editingRecord ? 'Edit Expense' : 'Add Expense'}>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <FormField label="Date" error={errors.expense_date}>
@@ -1325,8 +1458,7 @@ function Expenses({ showToast, showConfirm, dataVersion }) {
               />
             )}
           </form>
-        </FormCard>
-      )}
+        </Modal>
 
       <DataTable
         headers={['Date', 'Category', 'Description', 'Amount', 'Paid By', '']}
@@ -1343,7 +1475,7 @@ function Expenses({ showToast, showConfirm, dataVersion }) {
           <>
             <td className="whitespace-nowrap px-4 py-3.5 text-gray-600 text-sm dark:text-gray-400">{exp.expense_date}</td>
             <td className="whitespace-nowrap px-4 py-3.5">
-              <span className="badge bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300">
+              <span className="badge bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300">
                 {(() => { const I = CATEGORY_ICONS[exp.expense_categories?.name]; return I ? <I className="h-3 w-3" /> : null })()}
                 {exp.expense_categories?.name}
               </span>
@@ -1415,7 +1547,7 @@ function Advances({ showToast, showConfirm, dataVersion }) {
   const [error, setError] = useState(null)
   const [form, setForm] = useState(EMPTY_ADVANCE_FORM)
   const [errors, setErrors] = useState({})
-  const [showForm, setShowForm] = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
   const [editingRecord, setEditingRecord] = useState(null)
   const isEditing = editingRecord !== null
   const {
@@ -1517,14 +1649,14 @@ function Advances({ showToast, showConfirm, dataVersion }) {
       notes: record.notes || '',
     })
     setErrors({})
-    setShowForm(true)
+    setModalOpen(true)
   }
 
   function cancelEditing() {
     setEditingRecord(null)
     setForm(EMPTY_ADVANCE_FORM)
     setErrors({})
-    setShowForm(false)
+    setModalOpen(false)
   }
 
 
@@ -1588,30 +1720,23 @@ function Advances({ showToast, showConfirm, dataVersion }) {
   return (
     <div className="space-y-5 sm:space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900 sm:text-2xl dark:text-gray-100">Advances</h2>
+        <h2 className="text-xl font-bold text-white sm:text-2xl">Advances</h2>
         <button
-          onClick={() => {
-            if (editingRecord) {
-              cancelEditing()
-            } else {
-              setShowForm(!showForm)
-            }
-          }}
+          onClick={() => setModalOpen(true)}
           className="btn-primary px-4 py-2.5 text-xs sm:text-sm sm:px-5 sm:py-3"
         >
-          {editingRecord || showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-          {editingRecord ? 'Cancel' : showForm ? 'Cancel' : 'Add Advance'}
+          <Plus className="h-4 w-4" />
+          Add Advance
         </button>
         <button
           onClick={() => { setBulkMode(!bulkMode); if (bulkMode) setSelectedIds(new Set()) }}
-          className={`btn-ghost px-3 py-2.5 text-xs sm:text-sm sm:px-4 sm:py-3 ${bulkMode ? 'bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200 dark:bg-indigo-900/50 dark:text-indigo-300 dark:ring-indigo-700/50' : ''}`}
+          className={`btn-ghost px-3 py-2.5 text-xs sm:text-sm sm:px-4 sm:py-3 ${bulkMode ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/50 dark:text-emerald-300 dark:ring-emerald-700/50' : ''}`}
         >
           {bulkMode ? 'Done' : 'Select'}
         </button>
       </div>
 
-      {showForm && (
-        <FormCard title={editingRecord ? 'Edit Advance Payment' : 'Add Advance Payment'}>
+      <Modal open={modalOpen} onClose={cancelEditing} title={editingRecord ? 'Edit Advance Payment' : 'Add Advance Payment'}>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <FormField label="Date" error={errors.payment_date}>
@@ -1718,8 +1843,7 @@ function Advances({ showToast, showConfirm, dataVersion }) {
               </div>
             </div>
           </form>
-        </FormCard>
-      )}
+        </Modal>
 
       <DataTable
         headers={['Date', 'Person', 'Amount', 'Method', 'Notes', '']}
@@ -1804,7 +1928,7 @@ function Contributions({ showToast, showConfirm, dataVersion }) {
   const [error, setError] = useState(null)
   const [form, setForm] = useState(EMPTY_CONTRIB_FORM)
   const [errors, setErrors] = useState({})
-  const [showForm, setShowForm] = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
   const [editingRecord, setEditingRecord] = useState(null)
   const isEditing = editingRecord !== null
   const {
@@ -1912,14 +2036,14 @@ function Contributions({ showToast, showConfirm, dataVersion }) {
       reason: record.reason,
     })
     setErrors({})
-    setShowForm(true)
+    setModalOpen(true)
   }
 
   function cancelEditing() {
     setEditingRecord(null)
     setForm(EMPTY_CONTRIB_FORM)
     setErrors({})
-    setShowForm(false)
+    setModalOpen(false)
   }
 
 
@@ -1981,33 +2105,26 @@ function Contributions({ showToast, showConfirm, dataVersion }) {
   return (
     <div className="space-y-5 sm:space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900 sm:text-2xl dark:text-gray-100">Contributions</h2>
+        <h2 className="text-xl font-bold text-white sm:text-2xl">Contributions</h2>
         <button
-          onClick={() => {
-            if (editingRecord) {
-              cancelEditing()
-            } else {
-              setShowForm(!showForm)
-            }
-          }}
+          onClick={() => setModalOpen(true)}
           className="btn-primary px-4 py-2.5 text-xs sm:text-sm sm:px-5 sm:py-3"
         >
-          {editingRecord || showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-          {editingRecord ? 'Cancel' : showForm ? 'Cancel' : 'Add Contribution'}
+          <Plus className="h-4 w-4" />
+          Add Contribution
         </button>
         <button
           onClick={() => { setBulkMode(!bulkMode); if (bulkMode) setSelectedIds(new Set()) }}
-          className={`btn-ghost px-3 py-2.5 text-xs sm:text-sm sm:px-4 sm:py-3 ${bulkMode ? 'bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200 dark:bg-indigo-900/50 dark:text-indigo-300 dark:ring-indigo-700/50' : ''}`}
+          className={`btn-ghost px-3 py-2.5 text-xs sm:text-sm sm:px-4 sm:py-3 ${bulkMode ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/50 dark:text-emerald-300 dark:ring-emerald-700/50' : ''}`}
         >
           {bulkMode ? 'Done' : 'Select'}
         </button>
       </div>
-      <p className="rounded-xl border border-indigo-100 bg-indigo-50/50 dark:bg-indigo-900/30 px-4 py-3 text-sm leading-relaxed text-indigo-700 dark:border-indigo-800/50 dark:bg-indigo-950/30 dark:text-indigo-300">
+      <p className="rounded-xl border border-emerald-100 bg-emerald-50/50 dark:bg-emerald-900/30 px-4 py-3 text-sm leading-relaxed text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-950/30 dark:text-emerald-300">
         Track money that <strong>{managerName}</strong> paid on behalf of other people.
       </p>
 
-      {showForm && (
-        <FormCard title={editingRecord ? 'Edit Contribution' : 'Add Contribution'}>
+      <Modal open={modalOpen} onClose={cancelEditing} title={editingRecord ? 'Edit Contribution' : 'Add Contribution'}>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <FormField label="Date" error={errors.contribution_date}>
@@ -2101,8 +2218,7 @@ function Contributions({ showToast, showConfirm, dataVersion }) {
               {editingRecord ? 'Update Contribution' : 'Add Contribution'}
             </SubmitButton>
           </form>
-        </FormCard>
-      )}
+        </Modal>
 
       <DataTable
         headers={['Date', 'Person', 'Amount', 'Reason', '']}
@@ -2326,7 +2442,7 @@ function Settlement({ showToast, dataVersion }) {
   return (
     <div className="space-y-5 sm:space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900 sm:text-2xl dark:text-gray-100">Settlement</h2>
+        <h2 className="text-xl font-bold text-white sm:text-2xl">Settlement</h2>
         {!settled ? (
           <button
             onClick={handleMakeSettlement}
@@ -2356,8 +2472,8 @@ function Settlement({ showToast, dataVersion }) {
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Per Person Share</p>
               <p className="text-lg font-bold text-gray-900 sm:text-xl dark:text-gray-100">{formatAmount(perPersonShare)}</p>
             </div>
-            <div className="rounded-xl bg-indigo-100 p-2.5 dark:bg-indigo-900/50">
-              <Scale className="h-4 w-4 text-indigo-600 sm:h-5 sm:w-5 dark:text-indigo-400" />
+            <div className="rounded-xl bg-emerald-100 p-2.5 dark:bg-emerald-900/50">
+              <Scale className="h-4 w-4 text-emerald-600 sm:h-5 sm:w-5 dark:text-emerald-400" />
             </div>
           </div>              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Total {formatAmount(totalExpenses)} ÷ {allMembers.length} people</p>
         </div>
@@ -2409,12 +2525,12 @@ function Settlement({ showToast, dataVersion }) {
           {/* Printable Summary */}
           <div
             ref={summaryRef}
-            className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-8 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+            className="rounded-2xl border border-gray-200/80 bg-white/95 p-5 sm:p-8 shadow-sm backdrop-blur-lg dark:border-gray-700/40 dark:bg-gray-900/40 dark:backdrop-blur-lg"
             style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
           >
             {/* Header */}              <div className="mb-6 border-b border-gray-200 pb-4 text-center dark:border-gray-700">
-              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100">
-                <Wallet className="h-5 w-5 text-indigo-600" />
+              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100">
+                <Wallet className="h-5 w-5 text-emerald-600" />
               </div>
               <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Tour Expense Summary</h3>
               <p className="text-xs text-gray-500 dark:text-gray-400">Settled on {settleDate}</p>
@@ -2422,7 +2538,7 @@ function Settlement({ showToast, dataVersion }) {
 
             {/* Summary Stats */}
             <div className="mb-5 grid grid-cols-2 gap-3">
-              <div className="rounded-xl bg-indigo-50 p-3 text-center dark:bg-indigo-900/30">
+              <div className="rounded-xl bg-emerald-50 p-3 text-center dark:bg-emerald-900/30">
                 <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400">Total Expenses</p>
                 <p className="text-base font-bold text-gray-900 dark:text-gray-100">{formatAmount(totalExpenses)}</p>
               </div>
@@ -2435,7 +2551,7 @@ function Settlement({ showToast, dataVersion }) {
             {/* All Expenses */}
             <div className="mb-5">
               <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-gray-900">
-                <Receipt className="h-3.5 w-3.5 text-indigo-500" />
+                <Receipt className="h-3.5 w-3.5 text-emerald-500" />
                 Expenses ({allExpenses.length})
               </h4>
               <div className="space-y-1">
@@ -2510,7 +2626,7 @@ function Settlement({ showToast, dataVersion }) {
                     }`}>
                       <div className="flex-1">
                         <span className="font-medium text-gray-900">{b.member_name}</span>
-                        {b.member_role === 'manager' && <span className="ml-1.5 text-[10px] font-medium text-indigo-600">Manager</span>}
+                        {b.member_role === 'manager' && <span className="ml-1.5 text-[10px] font-medium text-emerald-600">Manager</span>}
                         <p className="text-gray-500">Share: {formatAmount(b.expense_share)} · Paid: {formatAmount(paid)}</p>
                       </div>
                       <span className={`ml-2 font-semibold ${owes ? 'text-red-700' : owed ? 'text-green-700' : 'text-gray-700'}`}>
@@ -2525,15 +2641,15 @@ function Settlement({ showToast, dataVersion }) {
             {/* Payment Instructions */}
             <div className="mb-5">
               <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-gray-900">
-                <MessageSquare className="h-3.5 w-3.5 text-indigo-500" />
+                <MessageSquare className="h-3.5 w-3.5 text-emerald-500" />
                 Payment Instructions
               </h4>
               <div className="space-y-1.5">
                 {instructions.length > 0 ? instructions.map((inst, idx) => (
                   <div key={idx} className={`rounded-lg border px-3 py-2.5 text-xs ${
                     inst.type === 'owes'
-                      ? 'border-red-100 bg-red-50 text-red-800'
-                      : 'border-green-100 bg-green-50 dark:border-green-900/50 dark:bg-green-950/30 text-green-800'
+                      ? 'border-red-100 bg-red-50 dark:border-red-900/50 dark:bg-red-950/30 text-red-800 dark:text-red-100'
+                      : 'border-green-100 bg-green-50 dark:border-green-900/50 dark:bg-green-950/30 text-green-800 dark:text-green-100'
                   }`}>
                     <strong>{inst.from}</strong>{' '}
                     {inst.type === 'owes' ? 'should pay' : 'should get back from'}{' '}
@@ -2563,19 +2679,19 @@ function Settlement({ showToast, dataVersion }) {
             const bal = Number(b.balance)
             const owes = bal > 0.01
             const owed = bal < -0.01
-            const rowBg = owes ? 'bg-red-50/50' : owed ? 'bg-green-50/50' : ''
+            const rowBg = owes ? 'bg-red-50/50 dark:bg-red-950/30' : owed ? 'bg-green-50/50 dark:bg-green-950/30' : ''
             return (
               <>
-                <td className={`px-4 py-3 font-medium text-gray-900 text-sm ${rowBg}`}>
+                <td className={`px-4 py-3 font-medium text-gray-900 dark:text-gray-100 text-sm ${rowBg}`}>
                   {b.member_name}
                   {b.member_role === 'manager' && (
-                    <span className="ml-2 badge bg-indigo-100 text-indigo-700">Manager</span>
+                    <span className="ml-2 badge bg-emerald-100 text-emerald-700">Manager</span>
                   )}
                 </td>
-                <td className={`whitespace-nowrap px-4 py-3 text-right text-gray-700 text-sm ${rowBg}`}>{formatAmount(b.expense_share)}</td>
-                <td className={`whitespace-nowrap px-4 py-3 text-right text-gray-700 text-sm ${rowBg}`}>{formatAmount(b.advance_paid)}</td>
-                <td className={`whitespace-nowrap px-4 py-3 text-right text-gray-700 text-sm ${rowBg}`}>{formatAmount(b.contribution_for_them)}</td>
-                <td className={`whitespace-nowrap px-4 py-3 text-right text-gray-700 text-sm ${rowBg}`}>{formatAmount(b.direct_paid)}</td>
+                <td className={`whitespace-nowrap px-4 py-3 text-right text-gray-700 dark:text-gray-100 text-sm ${rowBg}`}>{formatAmount(b.expense_share)}</td>
+                <td className={`whitespace-nowrap px-4 py-3 text-right text-gray-700 dark:text-gray-100 text-sm ${rowBg}`}>{formatAmount(b.advance_paid)}</td>
+                <td className={`whitespace-nowrap px-4 py-3 text-right text-gray-700 dark:text-gray-100 text-sm ${rowBg}`}>{formatAmount(b.contribution_for_them)}</td>
+                <td className={`whitespace-nowrap px-4 py-3 text-right text-gray-700 dark:text-gray-100 text-sm ${rowBg}`}>{formatAmount(b.direct_paid)}</td>
                 <td className={`whitespace-nowrap px-4 py-3 text-right ${rowBg}`}>
                   <BalanceBadge balance={bal} formatAmount={formatAmount} />
                 </td>
@@ -2593,22 +2709,22 @@ function Settlement({ showToast, dataVersion }) {
             const owed = bal < -0.01
             return (
               <div key={b.member_name} className={`rounded-xl border p-3 ${
-                owes ? 'border-red-100 bg-red-50/50' : owed ? 'border-green-100 bg-green-50 dark:border-green-900/50 dark:bg-green-950/30/50' : 'border-gray-100'
+                owes ? 'border-red-100/80 bg-red-50/60 dark:border-red-900/40 dark:bg-red-950/20 dark:backdrop-blur-lg' : owed ? 'border-green-100/80 bg-green-50/60 dark:border-green-900/40 dark:bg-green-950/20 dark:backdrop-blur-lg' : 'border-gray-100/80 dark:border-gray-700/40'
               }`}>
                 <div className="mb-2 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 font-medium text-gray-900 text-sm">
+                  <span className="flex items-center gap-1.5 font-medium text-gray-900 dark:text-gray-100 text-sm">
                     {b.member_name}
                     {b.member_role === 'manager' && (
-                      <span className="badge bg-indigo-100 text-indigo-700 text-[10px]">Mgr</span>
+                      <span className="badge bg-emerald-100 text-emerald-700 text-[10px]">Mgr</span>
                     )}
                   </span>
                   <BalanceBadge balance={bal} formatAmount={formatAmount} />
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
-                  <span>Share: <strong className="text-gray-700">{formatAmount(b.expense_share)}</strong></span>
-                  <span>Advance: <strong className="text-gray-700">{formatAmount(b.advance_paid)}</strong></span>
-                  <span>Contribution: <strong className="text-gray-700">{formatAmount(b.contribution_for_them)}</strong></span>
-                  <span>Direct Paid: <strong className="text-gray-700">{formatAmount(b.direct_paid)}</strong></span>
+                <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-300">
+                  <span>Share: <strong className="text-gray-700 dark:text-gray-100">{formatAmount(b.expense_share)}</strong></span>
+                  <span>Advance: <strong className="text-gray-700 dark:text-gray-100">{formatAmount(b.advance_paid)}</strong></span>
+                  <span>Contribution: <strong className="text-gray-700 dark:text-gray-100">{formatAmount(b.contribution_for_them)}</strong></span>
+                  <span>Direct Paid: <strong className="text-gray-700 dark:text-gray-100">{formatAmount(b.direct_paid)}</strong></span>
                 </div>
               </div>
             )
@@ -2618,7 +2734,7 @@ function Settlement({ showToast, dataVersion }) {
 
       <div className="card">
         <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
-          <MessageSquare className="h-4 w-4 text-indigo-500" />
+          <MessageSquare className="h-4 w-4 text-emerald-500" />
           Payment Instructions
         </h3>
         <div className="space-y-2">
@@ -2627,8 +2743,8 @@ function Settlement({ showToast, dataVersion }) {
               key={idx}
               className={`animate-slide-up rounded-xl border px-4 py-3.5 text-sm leading-relaxed ${
                 inst.type === 'owes'
-                  ? 'border-red-100 bg-red-50 text-red-800'
-                  : 'border-green-100 bg-green-50 dark:border-green-900/50 dark:bg-green-950/30 text-green-800'
+                  ? 'border-red-100 bg-red-50 dark:border-red-900/50 dark:bg-red-950/30 text-red-800 dark:text-red-100'
+                  : 'border-green-100 bg-green-50 dark:border-green-900/50 dark:bg-green-950/30 text-green-800 dark:text-green-100'
               }`}
               style={{ animationDelay: `${idx * 80}ms` }}
             >
@@ -2639,7 +2755,7 @@ function Settlement({ showToast, dataVersion }) {
                   {inst.type === 'owes' ? (
                     <ArrowUpRight className="h-4 w-4 text-red-600 dark:text-red-400" />
                   ) : (
-                    <ArrowDownRight className="h-4 w-4 text-green-600" />
+                    <ArrowDownRight className="h-4 w-4 text-green-600 dark:text-green-400" />
                   )}
                 </div>
                 <div className="flex-1">
@@ -2658,9 +2774,9 @@ function Settlement({ showToast, dataVersion }) {
             </div>
           )}
           {manager && (
-            <div className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3.5 text-sm text-indigo-800">
+            <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3.5 text-sm text-emerald-800">
               <div className="flex items-center gap-2">
-                <Wallet className="h-4 w-4 text-indigo-500" />
+                <Wallet className="h-4 w-4 text-emerald-500" />
                 <strong>Net for Manager:</strong>{' '}
                 {managerBalance > 0.01 ? (
                   <span>Needs to collect <strong>{formatAmount(managerBalance)}</strong> from others</span>
@@ -2682,7 +2798,7 @@ function Settlement({ showToast, dataVersion }) {
             className="fixed inset-0 bg-black/40 backdrop-blur-sm dark:bg-black/60"
             onClick={() => setShowPendingModal(false)}
           />
-          <div className="animate-scale-in relative z-10 w-full max-w-md rounded-2xl border border-gray-200 bg-white/95 backdrop-blur-md p-6 shadow-2xl dark:border-gray-700/80 dark:bg-gray-900/95 dark:backdrop-blur-md">
+          <div className="animate-scale-in relative z-10 w-full max-w-md rounded-2xl border border-gray-200/80 bg-white/90 backdrop-blur-lg p-6 shadow-2xl dark:border-gray-700/40 dark:bg-gray-900/40 dark:backdrop-blur-lg">
             <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-900/50">
               <AlertTriangle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
             </div>
@@ -2697,7 +2813,7 @@ function Settlement({ showToast, dataVersion }) {
                   key={idx}
                   className={`rounded-xl border px-4 py-3 text-sm ${
                     inst.type === 'owes'
-                      ? 'border-red-100 bg-red-50'
+                      ? 'border-red-100 bg-red-50 dark:border-red-900/50 dark:bg-red-950/30'
                       : 'border-green-100 bg-green-50 dark:border-green-900/50 dark:bg-green-950/30'
                   }`}
                 >
@@ -2713,12 +2829,12 @@ function Settlement({ showToast, dataVersion }) {
                         )}
                       </div>
                       <div>
-                        <span className="font-medium text-gray-900">{inst.from}</span>
-                        <span className="text-gray-500"> {inst.type === 'owes' ? 'owes →' : '← gets back from'} </span>
-                        <span className="font-medium text-gray-900">{inst.to}</span>
+                        <span className="font-medium text-gray-900 dark:text-gray-100">{inst.from}</span>
+                        <span className="text-gray-500 dark:text-gray-400"> {inst.type === 'owes' ? 'owes →' : '← gets back from'} </span>
+                        <span className="font-medium text-gray-900 dark:text-gray-100">{inst.to}</span>
                       </div>
                     </div>
-                    <span className={`ml-2 font-bold ${inst.type === 'owes' ? 'text-red-700' : 'text-green-700'}`}>
+                    <span className={`ml-2 font-bold ${inst.type === 'owes' ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-300'}`}>
                      `${formatAmount(inst.amount)}`
                     </span>
                   </div>
@@ -2751,13 +2867,13 @@ function Settlement({ showToast, dataVersion }) {
    HELP GUIDE
    ══════════════════════════════════════════════════ */
 
-function HelpGuide() {
+function HelpGuide({ onRestartTour }) {
   const sections = [
     {
       title: 'Overview',
       icon: Wallet,
-      color: 'text-indigo-600',
-      bg: 'bg-indigo-100',
+      color: 'text-emerald-600',
+      bg: 'bg-emerald-100',
       content: (
         <div className="space-y-4 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
           <p>
@@ -2801,7 +2917,7 @@ function HelpGuide() {
               </div>
             ))}
           </div>
-          <p className="flex items-center gap-2 rounded-xl bg-indigo-50 px-3 py-2.5 text-xs text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-300">
+          <p className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2.5 text-xs text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">
             <ArrowUpRight className="h-3.5 w-3.5 flex-shrink-0" />
             Use the Quick Action buttons to instantly add an expense, advance, or contribution without leaving the Dashboard.
           </p>
@@ -2811,8 +2927,8 @@ function HelpGuide() {
     {
       title: 'Expenses',
       icon: Receipt,
-      color: 'text-indigo-600',
-      bg: 'bg-indigo-100',
+      color: 'text-emerald-600',
+      bg: 'bg-emerald-100',
       content: (
         <div className="space-y-4 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
           <p>
@@ -2823,8 +2939,8 @@ function HelpGuide() {
             <strong className="text-gray-900">person who paid</strong>.
           </p>
           <p className="flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2.5 text-xs">
-            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900/50">
-              <Plus className="h-3 w-3 text-indigo-600" />
+            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/50">
+              <Plus className="h-3 w-3 text-emerald-600" />
             </span>
             Tap <strong>Add Expense</strong> to open the form. You can also add new categories or people on the fly using the{' '}
             <strong className="text-gray-900">➕ Add new...</strong> options in the dropdowns.
@@ -2898,7 +3014,7 @@ function HelpGuide() {
             It shows the final financial picture and tells you exactly who needs to pay whom.
           </p>
           <div className="space-y-3">
-            <div className="rounded-xl bg-indigo-50 px-3 py-2.5 text-xs text-indigo-800">
+            <div className="rounded-xl bg-emerald-50 px-3 py-2.5 text-xs text-emerald-800">
               <p className="mb-1 font-semibold">How it works:</p>
               <ol className="ml-4 list-decimal space-y-1">
                 <li>Total expenses are divided equally among <strong>8 members</strong> → <strong>Per Person Share</strong></li>
@@ -2907,7 +3023,7 @@ function HelpGuide() {
                 <li>If balance &gt; 0 → they owe Abir · If balance &lt; 0 → Abir owes them</li>
               </ol>
             </div>
-            <div className="rounded-xl border border-green-100 bg-green-50 dark:border-green-900/50 dark:bg-green-950/30 px-3 py-2.5 text-xs text-green-800">
+            <div className="rounded-xl border border-green-100 bg-green-50 dark:border-green-900/50 dark:bg-green-950/30 px-3 py-2.5 text-xs text-green-800 dark:text-green-100">
               <p className="mb-1 font-semibold">Payment Instructions:</p>
               <p>The page automatically generates clear instructions like "Rony should pay Abir: ৳1,250.00" so everyone knows exactly what to do.</p>
             </div>
@@ -2918,14 +3034,14 @@ function HelpGuide() {
     {
       title: 'How Everything Connects',
       icon: MessageSquare,
-      color: 'text-purple-600',
-      bg: 'bg-purple-100',
+      color: 'text-emerald-600',
+      bg: 'bg-emerald-100',
       content: (
         <div className="space-y-4 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
-          <div className="rounded-xl border border-purple-100 bg-purple-50 p-4">
-            <p className="mb-3 text-xs font-semibold text-purple-800">Data Flow Diagram</p>
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4">
+            <p className="mb-3 text-xs font-semibold text-emerald-800">Data Flow Diagram</p>
             <div className="flex flex-col items-center gap-1.5 text-xs">
-              <div className="rounded-lg bg-indigo-100 dark:bg-indigo-900/50 px-3 py-2 font-semibold text-indigo-700">📋 Expenses</div>
+              <div className="rounded-lg bg-emerald-100 dark:bg-emerald-900/50 px-3 py-2 font-semibold text-emerald-700">📋 Expenses</div>
               <ArrowDown className="h-3.5 w-3.5 text-gray-400" />
               <div className="rounded-lg bg-amber-100 px-3 py-2 font-semibold text-amber-700">💰 Total Bill ÷ Total Members</div>
               <div className="flex items-center gap-3">
@@ -2971,7 +3087,7 @@ function HelpGuide() {
               return (
                 <div key={tip.label} className="flex items-start gap-3 rounded-xl border border-gray-100 bg-gray-50/50 dark:bg-gray-800/30 p-3">
                   <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-white shadow-sm">
-                    <TipIcon className="h-4 w-4 text-indigo-500" />
+                    <TipIcon className="h-4 w-4 text-emerald-500" />
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-gray-900">{tip.label}</p>
@@ -2989,11 +3105,11 @@ function HelpGuide() {
   return (
     <div className="space-y-5 sm:space-y-6">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100">
-          <HelpCircle className="h-5 w-5 text-indigo-600" />
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100">
+          <HelpCircle className="h-5 w-5 text-emerald-600" />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">Help Guide</h2>
+          <h2 className="text-xl font-bold text-white sm:text-2xl">Help Guide</h2>
           <p className="text-xs text-gray-500">Learn how the app works and how each section fits together</p>
         </div>
       </div>
@@ -3021,37 +3137,19 @@ function HelpGuide() {
         })}
       </div>
 
-      <div className="rounded-2xl border border-indigo-100 bg-gradient-to-b from-indigo-50 to-white px-5 py-5 text-center">
-        <Wallet className="mx-auto mb-2 h-6 w-6 text-indigo-500" />
+      <div className="rounded-2xl border border-emerald-100 bg-gradient-to-b from-emerald-50 to-white px-5 py-5 text-center">
+        <Wallet className="mx-auto mb-2 h-6 w-6 text-emerald-500" />
         <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Happy Tracking! 🎉</p>
         <p className="mt-1 text-xs text-gray-500">
           Record your expenses, track who paid what, and settle up at the end — all in one place.
         </p>
-      </div>
-    </div>
-  )
-}
-
-/* ══════════════════════════════════════════════════
-   MODAL
-   ══════════════════════════════════════════════════ */
-
-function Modal({ open, onClose, title, children }) {
-  if (!open) return null
-
-  return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center sm:items-center sm:p-4">
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm dark:bg-black/60" onClick={onClose} />
-      <div className="animate-slide-up relative z-10 w-full rounded-2xl rounded-b-none border border-gray-200 bg-white/95 backdrop-blur-md shadow-2xl sm:max-w-lg sm:rounded-2xl max-h-[90vh] overflow-y-auto dark:border-gray-700/80 dark:bg-gray-900/95 dark:backdrop-blur-md">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white/95 backdrop-blur-sm px-5 py-4 dark:border-gray-700/50 dark:bg-gray-900/95">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
-          <button onClick={onClose} className="btn-ghost flex h-8 w-8 items-center justify-center rounded-lg p-0" aria-label="Close">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="px-5 py-4">
-          {children}
-        </div>
+        <button
+          onClick={onRestartTour}
+          className="btn-ghost mx-auto mt-3 px-4 py-2 text-xs"
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          Replay Tour
+        </button>
       </div>
     </div>
   )
@@ -3069,6 +3167,8 @@ function QuickAddExpenseModal({ open, onClose, onSuccess, showToast }) {
   const [form, setForm] = useState(EMPTY_EXPENSE_FORM)
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
+  const [expenseShares, setExpenseShares] = useState({})
+  const [managerId, setManagerId] = useState(null)
   const {
     addingPerson, setAddingPerson, newPersonName, setNewPersonName, addingPersonLoading,
     handleAddPerson, handleCancelAddPerson
@@ -3090,9 +3190,14 @@ function QuickAddExpenseModal({ open, onClose, onSuccess, showToast }) {
     showToast,
   })
 
+  function handleSharesChange(shares) {
+    setExpenseShares(shares)
+  }
+
   useEffect(() => {
     if (open) {
       setForm(EMPTY_EXPENSE_FORM)
+      setExpenseShares({})
       setErrors({})
       setAddingPerson(false)
       setNewPersonName('')
@@ -3105,14 +3210,17 @@ function QuickAddExpenseModal({ open, onClose, onSuccess, showToast }) {
   async function fetchDeps() {
     try {
       setLoading(true)
-      const [catRes, memRes] = await Promise.all([
+      const [catRes, memRes, mgrRes] = await Promise.all([
         supabase.from('expense_categories').select('*').order('name'),
         supabase.from('members').select('*').order('name'),
+        supabase.from('members').select('id').eq('role', 'manager').limit(1).maybeSingle(),
       ])
       if (catRes.error) throw catRes.error
       if (memRes.error) throw memRes.error
+      if (mgrRes.error) throw mgrRes.error
       setCategories(catRes.data || [])
       setMembers(memRes.data || [])
+      if (mgrRes.data) setManagerId(mgrRes.data.id)
     } catch (err) {
       showToast('error', err.message)
     } finally {
@@ -3160,19 +3268,41 @@ function QuickAddExpenseModal({ open, onClose, onSuccess, showToast }) {
     clearError(field)
   }
 
+  async function saveExpenseShares(expenseId) {
+    try {
+      const customShares = Object.entries(expenseShares).filter(
+        ([_, s]) => s.type !== 'equal'
+      )
+      if (customShares.length === 0) return
+      const records = customShares.map(([memberId, s]) => ({
+        expense_id: expenseId,
+        member_id: memberId,
+        share_type: s.type,
+        fixed_amount: s.type === 'fixed' ? Number(s.fixedAmount) : null,
+      }))
+      const { error: insErr } = await supabase.from('expense_shares').insert(records)
+      if (insErr) throw insErr
+    } catch (err) {
+      console.error('Failed to save expense shares:', err)
+      throw err
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     if (!validate()) return
     try {
       setSubmitting(true)
-      const { error: insErr } = await supabase.from('expenses').insert({
+      const { data: newExp, error: insErr } = await supabase.from('expenses').insert({
         expense_date: form.expense_date,
         category_id: form.category_id,
         description: form.description.trim(),
         amount: Number(form.amount),
         paid_by: form.paid_by,
-      })
+      }).select('id').single()
       if (insErr) throw insErr
+      // Save expense shares if any
+      await saveExpenseShares(newExp.id)
       showToast('success', 'Expense added!')
       onSuccess()
       onClose()
@@ -3189,7 +3319,7 @@ function QuickAddExpenseModal({ open, onClose, onSuccess, showToast }) {
     <Modal open={open} onClose={onClose} title="Add Expense">
       {loading ? (
         <div className="flex items-center justify-center py-10">
-          <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+          <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -3318,6 +3448,15 @@ function QuickAddExpenseModal({ open, onClose, onSuccess, showToast }) {
               )}
             </FormField>
           </div>
+          {managerId && Number(form.amount) > 0 && (
+            <ExpenseSharingEditor
+              members={members}
+              managerId={managerId}
+              expenseAmount={form.amount}
+              existingShares={expenseShares}
+              onChange={handleSharesChange}
+            />
+          )}
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
             <SubmitButton loading={submitting} icon={Plus}>Add Expense</SubmitButton>
@@ -3437,7 +3576,7 @@ function QuickAddAdvanceModal({ open, onClose, onSuccess, showToast }) {
     <Modal open={open} onClose={onClose} title="Add Advance Payment">
       {loading ? (
         <div className="flex items-center justify-center py-10">
-          <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+          <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -3637,7 +3776,7 @@ function QuickAddContributionModal({ open, onClose, onSuccess, showToast }) {
     <Modal open={open} onClose={onClose} title="Add Contribution">
       {loading ? (
         <div className="flex items-center justify-center py-10">
-          <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+          <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -3720,6 +3859,105 @@ function QuickAddContributionModal({ open, onClose, onSuccess, showToast }) {
   )
 }
 
+
+/* ══════════════════════════════════════════════════
+   QUICK ADD MEMBER MODAL (for FAB)
+   ══════════════════════════════════════════════════ */
+
+function QuickAddMemberModal({ open, onClose, onSuccess, showToast }) {
+  const [formName, setFormName] = useState('')
+  const [formRole, setFormRole] = useState('member')
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setFormName('')
+      setFormRole('member')
+      setSubmitting(false)
+    }
+  }, [open])
+
+  async function handleAddMember() {
+    const name = formName.trim()
+    if (!name) {
+      showToast('error', 'Member name is required')
+      return
+    }
+    if (name.length < 2) {
+      showToast('error', 'Name must be at least 2 characters')
+      return
+    }
+    if (name.length > 100) {
+      showToast('error', 'Name must be under 100 characters')
+      return
+    }
+    try {
+      setSubmitting(true)
+      const { data, error: err } = await supabase
+        .from('members')
+        .insert({ name, role: formRole })
+        .select()
+        .single()
+      if (err) {
+        if (err.code === '23505') {
+          showToast('error', `Member "${name}" already exists`)
+          return
+        }
+        throw err
+      }
+      showToast('success', `Member "${name}" added as ${formRole === 'manager' ? 'Manager' : 'Member'}`)
+      onSuccess()
+      onClose()
+    } catch (err) {
+      showToast('error', err.message || 'Failed to save member')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title="Add New Member">
+      <div className="flex flex-col gap-4">
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">Member Name</label>
+          <input
+            type="text"
+            value={formName}
+            onChange={(e) => setFormName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddMember(); } }}
+            placeholder="Enter member name"
+            className="input"
+            autoFocus
+          />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">Role</label>
+          <select
+            value={formRole}
+            onChange={(e) => setFormRole(e.target.value)}
+            className="input input-select"
+          >
+            <option value="member">👤 Member</option>
+            <option value="manager">👑 Manager</option>
+          </select>
+        </div>
+        <button
+          onClick={handleAddMember}
+          disabled={submitting || !formName.trim()}
+          className="btn-primary w-full"
+        >
+          {submitting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Check className="h-4 w-4" />
+          )}
+          Add Member
+        </button>
+      </div>
+    </Modal>
+  )
+}
+
 /* ══════════════════════════════════════════════════
    SHARED COMPONENTS
    ══════════════════════════════════════════════════ */
@@ -3727,8 +3965,8 @@ function QuickAddContributionModal({ open, onClose, onSuccess, showToast }) {
 function CenteredSpinner() {
   return (
     <div className="flex flex-col items-center justify-center py-24 gap-3">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-100 dark:bg-indigo-900/50">
-        <Loader2 className="h-6 w-6 animate-spin text-indigo-600 dark:text-indigo-400" />
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 dark:bg-emerald-900/50">
+        <Loader2 className="h-6 w-6 animate-spin text-emerald-600 dark:text-emerald-400" />
       </div>
       <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Loading...</p>
     </div>
@@ -3748,11 +3986,11 @@ function ErrorBox({ msg }) {
 
 function FormCard({ title, children }) {
   return (
-    <div className="card border-indigo-100/50 animate-slide-up dark:border-indigo-800/30">
+    <div className="card border-emerald-100/50 animate-slide-up dark:border-emerald-800/30">
       {title && (
         <div className="mb-4 flex items-center gap-2">
-          <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900/50">
-            <Plus className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+          <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/50">
+            <Plus className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
           </div>
           <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
         </div>
@@ -3812,7 +4050,7 @@ function EditBtn({ onClick }) {
   return (
     <button
       onClick={onClick}
-      className="btn-ghost rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-900/40 dark:hover:text-indigo-400"
+      className="btn-ghost rounded-lg p-2 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-900/40 dark:hover:text-emerald-400"
       title="Edit"
       aria-label="Edit"
     >
@@ -3841,7 +4079,7 @@ function BalanceBadge({ balance, formatAmount: fmt }) {
   const displayAmount = fmt ? fmt(Math.abs(balance)) : Math.abs(balance).toFixed(2)
   return (
     <span className={`badge gap-1 ${
-      owes ? 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' : owed ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+      owes ? 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-100' : owed ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-100' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-300'
     }`}>
       {owes ? <ArrowUpRight className="h-3 w-3" /> : owed ? <ArrowDownRight className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
      {displayAmount}
@@ -3854,12 +4092,12 @@ function BalanceBadge({ balance, formatAmount: fmt }) {
 
 function MobileDataRow({ title, subtitle, meta, amount, badge, onEdit, onDelete, formatAmount }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl bg-white p-3.5 shadow-sm ring-1 ring-gray-100 dark:bg-gray-900 dark:ring-gray-700/50 transition-all hover:shadow-md active:scale-[0.99]">
+    <div className="flex items-center gap-3 rounded-xl bg-white/85 p-3.5 shadow-sm ring-1 ring-gray-100 backdrop-blur-lg dark:bg-gray-900/40 dark:backdrop-blur-lg dark:ring-gray-700/40 transition-all hover:shadow-md active:scale-[0.99]">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">{title}</p>
           {badge && (
-            <span className="badge flex-shrink-0 bg-indigo-100 text-indigo-700">{badge}</span>
+            <span className="badge flex-shrink-0 bg-emerald-100 text-emerald-700">{badge}</span>
           )}
         </div>
         <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
@@ -3896,7 +4134,7 @@ function DesktopTable({ headers, rows, renderRow, emptyMsg, selectable, selected
                   type="checkbox"
                   checked={allSelected}
                   onChange={(e) => onSelectAll(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                 />
               </th>
             )}
@@ -3914,14 +4152,14 @@ function DesktopTable({ headers, rows, renderRow, emptyMsg, selectable, selected
             </tr>
           ) : (
             rows.map((row) => (
-              <tr key={row.id || row.member_name} className={`transition-colors hover:bg-gray-50/80 dark:hover:bg-gray-800/80 dark:bg-gray-800/60 ${selectedIds?.has(row.id) ? 'bg-indigo-50/50 dark:bg-indigo-900/30' : ''}`}>
+              <tr key={row.id || row.member_name} className={`transition-colors hover:bg-gray-50/80 dark:hover:bg-gray-800/80 dark:bg-gray-800/60 ${selectedIds?.has(row.id) ? 'bg-emerald-50/50 dark:bg-emerald-900/30' : ''}`}>
                 {selectable && (
                   <td className="px-2 py-3">
                     <input
                       type="checkbox"
                       checked={selectedIds.has(row.id)}
                       onChange={() => onToggleSelect(row.id)}
-                      className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                     />
                   </td>
                 )}
@@ -3954,7 +4192,7 @@ function DataTable({ headers, rows, total, totalColSpan, emptyMsg, renderRow, re
                     type="checkbox"
                     checked={allSelected}
                     onChange={(e) => onSelectAll(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                   />
                 </th>
               )}
@@ -3965,7 +4203,7 @@ function DataTable({ headers, rows, total, totalColSpan, emptyMsg, renderRow, re
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
             {rows.map((row) => (
-              <tr key={row.id || row.member_name} className={`transition-colors hover:bg-gray-50/80 dark:hover:bg-gray-800/80 dark:bg-gray-800/60 ${selectedIds?.has(row.id) ? 'bg-indigo-50/50 dark:bg-indigo-900/30' : ''}`}>{renderRow(row)}</tr>
+              <tr key={row.id || row.member_name} className={`transition-colors hover:bg-gray-50/80 dark:hover:bg-gray-800/80 dark:bg-gray-800/60 ${selectedIds?.has(row.id) ? 'bg-emerald-50/50 dark:bg-emerald-900/30' : ''}`}>{renderRow(row)}</tr>
             ))}
           </tbody>
           {hasData && (
@@ -3995,7 +4233,7 @@ function DataTable({ headers, rows, total, totalColSpan, emptyMsg, renderRow, re
                   type="checkbox"
                   checked={selectedIds.has(row.id)}
                   onChange={() => onToggleSelect(row.id)}
-                  className="mt-3 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 flex-shrink-0"
+                  className="mt-3 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 flex-shrink-0"
                 />
               )}
               <div className="flex-1 min-w-0">
@@ -4005,13 +4243,13 @@ function DataTable({ headers, rows, total, totalColSpan, emptyMsg, renderRow, re
           ))
         ) : (
           rows.map((row) => (
-            <div key={row.id} className={`flex items-center justify-between rounded-xl bg-white p-3 shadow-sm ring-1 ring-gray-100 dark:bg-gray-900 dark:ring-gray-700/50 ${selectable ? 'pl-2' : ''}`}>
+            <div key={row.id} className={`flex items-center justify-between rounded-xl bg-white/85 p-3 shadow-sm ring-1 ring-gray-100 backdrop-blur-lg dark:bg-gray-900/40 dark:backdrop-blur-lg dark:ring-gray-700/40 ${selectable ? 'pl-2' : ''}`}>
               {selectable && (
                 <input
                   type="checkbox"
                   checked={selectedIds.has(row.id)}
                   onChange={() => onToggleSelect(row.id)}
-                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 flex-shrink-0 mr-2"
+                  className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 flex-shrink-0 mr-2"
                 />
               )}
               <div className="text-sm text-gray-600">{row.id || row.name || '-'}</div>
@@ -4020,7 +4258,7 @@ function DataTable({ headers, rows, total, totalColSpan, emptyMsg, renderRow, re
           ))
         )}
         {hasData && (
-          <div className="flex items-center justify-between rounded-xl bg-indigo-50/50 dark:bg-indigo-900/30 px-3.5 py-3">
+          <div className="flex items-center justify-between rounded-xl bg-emerald-50/50 dark:bg-emerald-900/30 px-3.5 py-3">
             <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Total</span>
             <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{formatAmount(total)}</span>
           </div>

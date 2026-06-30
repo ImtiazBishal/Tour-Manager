@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import Modal from './Modal'
 import {
-  X,
   Plus,
   Loader2,
   Check,
@@ -17,13 +17,15 @@ export default function Members({ showToast, showConfirm, dataVersion }) {
   const [members, setMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [showForm, setShowForm] = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
   const [formName, setFormName] = useState('')
   const [formRole, setFormRole] = useState('member')
   const [submitting, setSubmitting] = useState(false)
   const [editingMember, setEditingMember] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   useEffect(() => { fetchMembers() }, [dataVersion])
+
+
 
   async function fetchMembers() {
     try {
@@ -46,7 +48,14 @@ export default function Members({ showToast, showConfirm, dataVersion }) {
     setEditingMember(member)
     setFormName(member.name)
     setFormRole(member.role)
-    setShowForm(true)
+    setModalOpen(true)
+  }
+
+  function cancelForm() {
+    setEditingMember(null)
+    setFormName('')
+    setFormRole('member')
+    setModalOpen(false)
   }
 
   async function handleAddMember() {
@@ -96,7 +105,7 @@ export default function Members({ showToast, showConfirm, dataVersion }) {
       setFormName('')
       setFormRole('member')
       setEditingMember(null)
-      setShowForm(false)
+      setModalOpen(false)
       await fetchMembers()
     } catch (err) {
       showToast('error', err.message || 'Failed to save member')
@@ -153,7 +162,7 @@ export default function Members({ showToast, showConfirm, dataVersion }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-indigo-600 dark:text-indigo-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-emerald-600 dark:text-emerald-400" />
       </div>
     )
   }
@@ -170,70 +179,65 @@ export default function Members({ showToast, showConfirm, dataVersion }) {
     <div className="space-y-5 sm:space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-gray-900 sm:text-2xl dark:text-gray-100">Members</h2>
+          <h2 className="text-xl font-bold text-white sm:text-2xl">Members</h2>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             {members.length} member{members.length !== 1 ? 's' : ''} · {managersCount} manager{managersCount !== 1 ? 's' : ''}
           </p>
         </div>
         <button
           onClick={() => {
-            setShowForm(!showForm)
             setEditingMember(null)
             setFormName('')
             setFormRole('member')
+            setModalOpen(true)
           }}
           className="btn-primary px-4 py-2.5 text-xs sm:text-sm sm:px-5 sm:py-3"
         >
-          {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-          {showForm ? 'Cancel' : 'Add Member'}
+          <Plus className="h-4 w-4" />
+          Add Member
         </button>
       </div>
 
-      {/* Add/Edit Form */}
-      {showForm && (
-        <div className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm sm:p-5 dark:border-gray-700/80 dark:bg-gray-900">
-          <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-gray-100">
-            {editingMember ? 'Edit Member' : 'Add New Member'}
-          </h3>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <div className="flex-1">
-              <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">Member Name</label>
-              <input
-                type="text"
-                value={formName}
-                onChange={(e) => setFormName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddMember(); } }}
-                placeholder="Enter member name"
-                className="input"
-                autoFocus
-              />
-            </div>
-            <div className="w-full sm:w-44">
-              <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">Role</label>
-              <select
-                value={formRole}
-                onChange={(e) => setFormRole(e.target.value)}
-                className="input input-select"
-              >
-                <option value="member">👤 Member</option>
-                <option value="manager">👑 Manager</option>
-              </select>
-            </div>
-            <button
-              onClick={handleAddMember}
-              disabled={submitting || !formName.trim()}
-              className="btn-primary w-full sm:w-auto"
-            >
-              {submitting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Check className="h-4 w-4" />
-              )}
-              {editingMember ? 'Update' : 'Add Member'}
-            </button>
+      {/* Add/Edit Form in Modal */}
+      <Modal open={modalOpen} onClose={cancelForm} title={editingMember ? 'Edit Member' : 'Add New Member'}>
+        <div className="flex flex-col gap-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">Member Name</label>
+            <input
+              type="text"
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddMember(); } }}
+              placeholder="Enter member name"
+              className="input"
+              autoFocus
+            />
           </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">Role</label>
+            <select
+              value={formRole}
+              onChange={(e) => setFormRole(e.target.value)}
+              className="input input-select"
+            >
+              <option value="member">👤 Member</option>
+              <option value="manager">👑 Manager</option>
+            </select>
+          </div>
+          <button
+            onClick={handleAddMember}
+            disabled={submitting || !formName.trim()}
+            className="btn-primary w-full"
+          >
+            {submitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Check className="h-4 w-4" />
+            )}
+            {editingMember ? 'Update Member' : 'Add Member'}
+          </button>
         </div>
-      )}
+      </Modal>
 
       {/* Search */}
       {members.length > 0 && (
@@ -251,7 +255,7 @@ export default function Members({ showToast, showConfirm, dataVersion }) {
 
       {/* Members Grid */}
       {filtered.length === 0 ? (
-        <div className="rounded-xl border border-gray-200 bg-white px-4 py-10 text-center text-sm text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500">
+        <div className="rounded-xl border border-gray-200/80 bg-white/85 px-4 py-10 text-center text-sm text-gray-400 backdrop-blur-lg dark:border-gray-700/40 dark:bg-gray-900/40 dark:text-gray-500 dark:backdrop-blur-lg">
           {searchQuery ? 'No members match your search' : 'No members added yet. Add your first member above.'}
         </div>
       ) : (
@@ -261,19 +265,19 @@ export default function Members({ showToast, showConfirm, dataVersion }) {
             return (
               <div
                 key={member.id}
-                className={`group relative rounded-2xl border bg-white p-4 shadow-sm transition-all duration-200 hover:shadow-md ${
+                className={`group relative rounded-2xl border bg-white/85 p-4 shadow-sm transition-all duration-200 hover:shadow-md backdrop-blur-lg ${
                   isManager
-                    ? 'border-indigo-200 bg-gradient-to-br from-white to-indigo-50/30 dark:border-indigo-700/60 dark:from-gray-900 dark:to-indigo-950/30'
-                    : 'border-gray-200/80 dark:border-gray-700/60'
-                } dark:bg-gray-900`}
+                    ? 'border-emerald-200/80 bg-gradient-to-br from-white/90 to-emerald-50/30 dark:border-emerald-700/40 dark:from-gray-900/40 dark:to-emerald-950/20'
+                    : 'border-gray-200/80 dark:border-gray-700/40'
+                } dark:bg-gray-900/40 dark:backdrop-blur-lg`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${
-                      isManager ? 'bg-indigo-100 dark:bg-indigo-900/50' : 'bg-gray-100 dark:bg-gray-800'
+                      isManager ? 'bg-emerald-100 dark:bg-emerald-900/50' : 'bg-gray-100 dark:bg-gray-800'
                     }`}>
                       {isManager ? (
-                        <Crown className="h-5 w-5 text-indigo-600" />
+                        <Crown className="h-5 w-5 text-emerald-600" />
                       ) : (
                         <User className="h-5 w-5 text-gray-500" />
                       )}
@@ -282,7 +286,7 @@ export default function Members({ showToast, showConfirm, dataVersion }) {
                       <p className="font-medium text-gray-900 dark:text-gray-100">{member.name}</p>
                       <div className="flex items-center gap-1.5 text-xs">
                         {isManager ? (
-                          <span className="badge bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300">
+                          <span className="badge bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">
                             <Crown className="h-3 w-3" />
                             Manager
                           </span>
@@ -301,7 +305,7 @@ export default function Members({ showToast, showConfirm, dataVersion }) {
                     {!isManager && (
                       <button
                         onClick={() => handleUpdateRole(member.id, 'manager')}
-                        className="btn-ghost rounded-lg p-1.5 text-xs text-gray-400 opacity-0 transition-all hover:text-indigo-600 group-hover:opacity-100"
+                        className="btn-ghost rounded-lg p-1.5 text-xs text-gray-400 opacity-0 transition-all hover:text-emerald-600 group-hover:opacity-100"
                         title="Promote to Manager"
                       >
                         <Crown className="h-3.5 w-3.5" />
@@ -318,7 +322,7 @@ export default function Members({ showToast, showConfirm, dataVersion }) {
                     )}
                     <button
                       onClick={() => handleEditMember(member)}
-                      className="btn-ghost rounded-lg p-1.5 text-xs text-gray-400 opacity-0 transition-all hover:text-indigo-600 group-hover:opacity-100"
+                      className="btn-ghost rounded-lg p-1.5 text-xs text-gray-400 opacity-0 transition-all hover:text-emerald-600 group-hover:opacity-100"
                       title="Edit member"
                     >
                       <Pencil className="h-3.5 w-3.5" />

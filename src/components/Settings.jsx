@@ -21,9 +21,10 @@ import {
   Plus,
   Pencil,
   Tag,
+  Sparkles,
 } from 'lucide-react'
 
-export default function Settings({ showToast, showConfirm }) {
+export default function Settings({ showToast, showConfirm, onRestartTour }) {
   const { currency, setCurrency, darkMode, setDarkMode, currencies, formatAmount } = useSettings()
   const [resetting, setResetting] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -290,7 +291,7 @@ export default function Settings({ showToast, showConfirm }) {
             <button
               onClick={() => setDarkMode(!darkMode)}
               className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-200 ${
-                darkMode ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'
+                darkMode ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-gray-600'
               }`}
             >
               <span
@@ -299,7 +300,7 @@ export default function Settings({ showToast, showConfirm }) {
                 }`}
               >
                 {darkMode ? (
-                  <Moon className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
+                  <Moon className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
                 ) : (
                   <Sun className="h-3 w-3 text-amber-500 dark:text-amber-400" />
                 )}
@@ -412,7 +413,7 @@ export default function Settings({ showToast, showConfirm }) {
   return (
     <div className="space-y-6 sm:space-y-8">
       <div>
-        <h2 className="text-xl font-bold text-gray-900 sm:text-2xl dark:text-gray-100">Settings</h2>
+        <h2 className="text-xl font-bold text-white sm:text-2xl">Settings</h2>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Configure your app preferences and manage data</p>
       </div>
 
@@ -436,8 +437,8 @@ export default function Settings({ showToast, showConfirm }) {
                 return (
                   <div
                     key={item.id}
-                    className={`flex items-center justify-between gap-4 bg-white px-4 py-3.5 sm:px-5 dark:bg-gray-900 ${
-                      isDanger ? 'hover:bg-red-50/50 dark:hover:bg-red-950/30' : 'hover:bg-gray-50/50 dark:hover:bg-gray-800/50'
+                    className={`flex items-center justify-between gap-4 bg-white/85 px-4 py-3.5 sm:px-5 backdrop-blur-lg dark:bg-gray-900/40 dark:backdrop-blur-lg ${
+                      isDanger ? 'hover:bg-red-50/50 dark:hover:bg-red-950/30' : 'hover:bg-gray-50/60 dark:hover:bg-gray-800/40'
                     } transition-colors ${
                       section.items.indexOf(item) < section.items.length - 1
                         ? `border-b ${isDanger ? 'border-red-100/50 dark:border-red-900/30' : 'border-gray-100 dark:border-gray-700/50'}`
@@ -481,7 +482,7 @@ export default function Settings({ showToast, showConfirm }) {
           </div>
           <div className="overflow-hidden rounded-2xl border border-gray-200/80 dark:border-gray-700/80">
             {/* Add new category */}
-            <div className="flex items-center gap-2 border-b border-gray-100 bg-white px-4 py-3 dark:border-gray-700/50 dark:bg-gray-900">
+            <div className="flex items-center gap-2 border-b border-gray-100/80 bg-white/85 px-4 py-3 backdrop-blur-lg dark:border-gray-700/40 dark:bg-gray-900/40 dark:backdrop-blur-lg">
               <input
                 type="text"
                 value={newCategoryName}
@@ -512,7 +513,7 @@ export default function Settings({ showToast, showConfirm }) {
             ) : (
               <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
                 {categories.map((cat) => (
-                  <div key={cat.id} className="group flex items-center gap-2 bg-white px-4 py-2.5 transition-colors hover:bg-gray-50/50 dark:bg-gray-900 dark:hover:bg-gray-800/50">
+                  <div key={cat.id} className="group flex items-center gap-2 bg-white/85 px-4 py-2.5 transition-colors hover:bg-gray-50/50 backdrop-blur-lg dark:bg-gray-900/40 dark:hover:bg-gray-800/50 dark:backdrop-blur-lg">
                     {editingCategory?.id === cat.id ? (
                       <>
                         <input
@@ -547,7 +548,7 @@ export default function Settings({ showToast, showConfirm }) {
                         <span className="flex-1 text-sm font-medium text-gray-900 dark:text-gray-100">{cat.name}</span>
                         <button
                           onClick={() => handleStartEditCategory(cat)}
-                          className="btn-ghost rounded-lg p-1.5 text-gray-400 opacity-0 transition-all hover:text-indigo-600 group-hover:opacity-100"
+                          className="btn-ghost rounded-lg p-1.5 text-gray-400 opacity-0 transition-all hover:text-emerald-600 group-hover:opacity-100"
                           title="Rename category"
                         >
                           <Pencil className="h-3.5 w-3.5" />
@@ -568,6 +569,17 @@ export default function Settings({ showToast, showConfirm }) {
           </div>
         </div>
       )}
+
+      {/* Replay Tour */}
+      <div className="text-center">
+        <button
+          onClick={onRestartTour}
+          className="btn-ghost mx-auto px-4 py-2 text-xs"
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          Replay Onboarding Tour
+        </button>
+      </div>
 
       {/* App Info */}
       <div className="border-t border-gray-100 pt-4 text-center text-xs text-gray-400 dark:border-gray-700/50 dark:text-gray-500">
