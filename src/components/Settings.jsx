@@ -2,6 +2,8 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useSettings } from '../lib/settings'
 import { queueOrRun } from '../lib/sync'
+import { setCache, getCache } from '../lib/dataCache'
+import CacheIndicator from './CacheIndicator'
 import {
   X,
   Check,
@@ -39,17 +41,43 @@ export default function Settings({ showToast, showConfirm, onRestartTour }) {
   const [addingCategory, setAddingCategory] = useState(false)
   const [editingCategory, setEditingCategory] = useState(null)
   const [editCategoryName, setEditCategoryName] = useState('')
+  const [fromCache, setFromCache] = useState(false)
 
   useEffect(() => { fetchCategories() }, [])
 
   async function fetchCategories() {
     try {
       setCategoriesLoading(true)
+
+      // If offline, try loading from cache
+      if (!navigator.onLine) {
+        const cached = await getCache('categories')
+        if (cached) {
+          setFromCache(true)
+          setCategories(cached.categories || [])
+          return
+        }
+        return
+      }
+
+      setFromCache(false)
+
       const { data, error } = await supabase.from('expense_categories').select('*').order('name')
       if (error) throw error
-      setCategories(data || [])
+      const categories = data || []
+      setCategories(categories)
+
+      // Cache for offline use
+      setCache('categories', { categories })
     } catch (err) {
       console.error('Failed to fetch categories:', err)
+      // Try cache as fallback
+      const cached = await getCache('categories')
+      if (cached) {
+        setFromCache(true)
+        setCategories(cached.categories || [])
+        return
+      }
     } finally {
       setCategoriesLoading(false)
     }
@@ -414,7 +442,10 @@ export default function Settings({ showToast, showConfirm, onRestartTour }) {
   return (
     <div className="space-y-6 sm:space-y-8">
       <div>
-        <h2 className="text-xl font-bold text-white sm:text-2xl">Settings</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-bold text-white sm:text-2xl">Settings</h2>
+          {fromCache && <CacheIndicator />}
+        </div>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Configure your app preferences and manage data</p>
       </div>
 

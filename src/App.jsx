@@ -57,8 +57,10 @@ import ExpenseSharingEditor from './components/ExpenseSharingEditor'
 import Modal from './components/Modal'
 import TourOverlay from './components/TourOverlay'
 import OfflineBanner from './components/OfflineBanner'
+import CacheIndicator from './components/CacheIndicator'
 import { useOnlineStatus } from './hooks/useOnlineStatus'
 import { flushQueue, getPendingCount, queueOrRun } from './lib/sync'
+import { setCache, getCache } from './lib/dataCache'
 
 /* ─── Constants ─── */
 
@@ -460,18 +462,20 @@ export default function App() {
           </div>
         )}
 
-        {/* FAB Button */}
-        <button
-          onClick={() => setFabOpen(!fabOpen)}
-          className={`fixed bottom-20 right-4 z-50 flex h-11 w-11 items-center justify-center rounded-2xl shadow-lg transition-all duration-300 ${
-            fabOpen
-              ? 'bg-gray-700 rotate-45 scale-110 shadow-gray-700/30 dark:bg-gray-600'
-              : 'bg-emerald-600 shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:scale-105 active:scale-95 dark:bg-emerald-500'
-          }`}
-          aria-label={fabOpen ? 'Close menu' : 'Quick actions'}
-        >
-          <Plus className="h-5 w-5 text-white transition-transform duration-300" />
-        </button>
+        {/* FAB Button — hidden when any FAB modal/drawer is open */}
+        {!fabAction && (
+          <button
+            onClick={() => setFabOpen(!fabOpen)}
+            className={`fixed bottom-20 right-4 z-50 flex h-11 w-11 items-center justify-center rounded-2xl shadow-lg transition-all duration-300 ${
+              fabOpen
+                ? 'bg-gray-700 rotate-45 scale-110 shadow-gray-700/30 dark:bg-gray-600'
+                : 'bg-emerald-600 shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:scale-105 active:scale-95 dark:bg-emerald-500'
+            }`}
+            aria-label={fabOpen ? 'Close menu' : 'Quick actions'}
+          >
+            <Plus className="h-5 w-5 text-white transition-transform duration-300" />
+          </button>
+        )}
       </div>
 
       {/* FAB Quick Add Modals */}
@@ -710,6 +714,7 @@ function Dashboard({ showToast, dataVersion }) {
   const [balances, setBalances] = useState([])
   const [todayStats, setTodayStats] = useState({ expenses: 0, advances: 0, contributions: 0 })
   const [lastTransactions, setLastTransactions] = useState([])
+  const [fromCache, setFromCache] = useState(false)
 
   useEffect(() => { fetchDashboardData() }, [dataVersion])
 
@@ -718,6 +723,23 @@ function Dashboard({ showToast, dataVersion }) {
       setLoading(true)
       setError(null)
 
+      // If offline, try loading from cache
+      if (!navigator.onLine) {
+        const cached = await getCache('dashboard')
+        if (cached) {
+          setFromCache(true)
+          setStats(cached.stats)
+          setCategoryBreakdown(cached.categoryBreakdown)
+          setRecentExpenses(cached.recentExpenses)
+          setBalances(cached.balances)
+          setTodayStats(cached.todayStats)
+          setLastTransactions(cached.lastTransactions)
+          return
+        }
+        throw new Error('You are offline. Connect to the internet to load data.')
+      }
+
+      setFromCache(false)
       const { data: expenses, error: expErr } = await supabase
         .from('expenses')
         .select('amount, category_id, expense_date, description, expense_categories(name), paid_by:members(name), created_at')
@@ -747,18 +769,20 @@ function Dashboard({ showToast, dataVersion }) {
         (b) => b.member_role !== 'manager' && Number(b.balance) > 0
       ).length
 
-      setStats({ totalExpenses, totalAdvances, netSpending: totalExpenses - totalAdvances, peopleOwing })
+      const stats = { totalExpenses, totalAdvances, netSpending: totalExpenses - totalAdvances, peopleOwing }
+      setStats(stats)
 
       // Compute today's activity
       const today = new Date().toISOString().split('T')[0]
       const todayExpenses = (expenses || []).filter((e) => e.expense_date === today)
       const todayAdvances = (advances || []).filter((a) => a.payment_date === today)
       const todayContributions = (contributions || []).filter((c) => c.contribution_date === today)
-      setTodayStats({
+      const todayStats = {
         expenses: todayExpenses.reduce((s, e) => s + Number(e.amount), 0),
         advances: todayAdvances.reduce((s, a) => s + Number(a.amount), 0),
         contributions: todayContributions.reduce((s, c) => s + Number(c.amount), 0),
-      })
+      }
+      setTodayStats(todayStats)
 
       // Build last 3 transactions across all types
       const tagged = [
@@ -783,15 +807,29 @@ function Dashboard({ showToast, dataVersion }) {
         const n = e.expense_categories?.name || 'Miscellaneous'
         catMap[n] = (catMap[n] || 0) + Number(e.amount)
       })
-      setCategoryBreakdown(
-        Object.entries(catMap)
-          .map(([name, amount]) => ({ name, amount }))
-          .sort((a, b) => b.amount - a.amount)
-      )
+      const categoryBreakdown = Object.entries(catMap)
+        .map(([name, amount]) => ({ name, amount }))
+        .sort((a, b) => b.amount - a.amount)
+      setCategoryBreakdown(categoryBreakdown)
       setRecentExpenses(expenses?.slice(0, 5) || [])
       setBalances(balanceData || [])
+
+      // Cache the computed dashboard data for offline use
+      setCache('dashboard', { stats, categoryBreakdown, recentExpenses: expenses?.slice(0, 5) || [], balances: balanceData || [], todayStats, lastTransactions: tagged.slice(0, 3) })
     } catch (err) {
       console.error(err)
+      // If fetch fails, try cache as fallback
+      const cached = await getCache('dashboard')
+      if (cached) {
+        setFromCache(true)
+        setStats(cached.stats)
+        setCategoryBreakdown(cached.categoryBreakdown)
+        setRecentExpenses(cached.recentExpenses)
+        setBalances(cached.balances)
+        setTodayStats(cached.todayStats)
+        setLastTransactions(cached.lastTransactions)
+        return
+      }
       setError(err.message)
     } finally {
       setLoading(false)
@@ -811,7 +849,10 @@ function Dashboard({ showToast, dataVersion }) {
   return (
     <div className="space-y-5 sm:space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-white sm:text-2xl">Dashboard</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-bold text-white sm:text-2xl">Dashboard</h2>
+          {fromCache && <CacheIndicator />}
+        </div>
         <button
           onClick={fetchDashboardData}
           className="btn-ghost text-xs sm:text-sm"
@@ -1100,6 +1141,7 @@ function Expenses({ showToast, showConfirm, dataVersion }) {
   const [bulkMode, setBulkMode] = useState(false)
   const [managerId, setManagerId] = useState(null)
   const [expenseShares, setExpenseShares] = useState({})
+  const [fromCache, setFromCache] = useState(false)
 
   function handleSharesChange(shares) {
     setExpenseShares(shares)
@@ -1110,21 +1152,65 @@ function Expenses({ showToast, showConfirm, dataVersion }) {
   async function fetchData() {
     try {
       setLoading(true)
-      const [expRes, catRes, memRes, mgrRes] = await Promise.all([
+
+      // If offline, try loading from cache
+      if (!navigator.onLine) {
+        const cached = await getCache('expenses')
+        if (cached) {
+          setFromCache(true)
+          setExpenses(cached.expenses || [])
+          setCategories(cached.categories || [])
+          setMembers(cached.members || [])
+          if (cached.managerId) setManagerId(cached.managerId)
+          return
+        }
+        throw new Error('You are offline. Connect to the internet to load data.')
+      }
+
+      setFromCache(false)
+
+      const [expRes, catRes, memRes, mgrRes, sharesRes] = await Promise.all([
         supabase.from('expenses').select('*, expense_categories(*), paid_by:members(name)').order('expense_date', { ascending: false }),
         supabase.from('expense_categories').select('*').order('name'),
         supabase.from('members').select('*').order('name'),
         supabase.from('members').select('id').eq('role', 'manager').limit(1).maybeSingle(),
+        supabase.from('expense_shares').select('*'),
       ])
       if (expRes.error) throw expRes.error
       if (catRes.error) throw catRes.error
       if (memRes.error) throw memRes.error
       if (mgrRes.error) throw mgrRes.error
-      setExpenses(expRes.data || [])
-      setCategories(catRes.data || [])
-      setMembers(memRes.data || [])
-      if (mgrRes.data) setManagerId(mgrRes.data.id)
+      if (sharesRes.error) throw sharesRes.error
+      const expenses = expRes.data || []
+      const categories = catRes.data || []
+      const members = memRes.data || []
+      const managerId = mgrRes.data?.id || null
+      const allShares = sharesRes.data || []
+      setExpenses(expenses)
+      setCategories(categories)
+      setMembers(members)
+      if (managerId) setManagerId(managerId)
+
+      // Build a map of expense_id -> shares for quick lookup
+      const sharesMap = {}
+      allShares.forEach((s) => {
+        if (!sharesMap[s.expense_id]) sharesMap[s.expense_id] = []
+        sharesMap[s.expense_id].push(s)
+      })
+
+      // Cache expense shares alongside other data for offline editing
+      setCache('expenses', { expenses, categories, members, managerId, expenseShares: sharesMap })
     } catch (err) {
+      // If fetch fails, try cache as fallback
+      const cached = await getCache('expenses')
+      if (cached) {
+        setFromCache(true)
+        setExpenses(cached.expenses || [])
+        setCategories(cached.categories || [])
+        setMembers(cached.members || [])
+        if (cached.managerId) setManagerId(cached.managerId)
+        return
+      }
       setError(err.message)
     } finally {
       setLoading(false)
@@ -1198,11 +1284,23 @@ function Expenses({ showToast, showConfirm, dataVersion }) {
 
   async function loadExpenseShares(expenseId) {
     try {
-      const { data, error } = await supabase
-        .from('expense_shares')
-        .select('*')
-        .eq('expense_id', expenseId)
-      if (error) throw error
+      let data = null
+
+      if (!navigator.onLine) {
+        // Try cached expense shares first when offline
+        const cached = await getCache('expenses')
+        if (cached?.expenseShares?.[expenseId]) {
+          data = cached.expenseShares[expenseId]
+        }
+      } else {
+        const { data: fetched, error } = await supabase
+          .from('expense_shares')
+          .select('*')
+          .eq('expense_id', expenseId)
+        if (error) throw error
+        data = fetched
+      }
+
       if (data && data.length > 0) {
         const shares = {}
         data.forEach((s) => {
@@ -1251,7 +1349,6 @@ function Expenses({ showToast, showConfirm, dataVersion }) {
       setForm(EMPTY_EXPENSE_FORM)
       setEditingRecord(null)
       setErrors({})
-      setShowForm(false)
       await fetchData()
     } catch (err) {
       showToast('error', err.message || 'Failed to save expense')
@@ -1310,7 +1407,10 @@ function Expenses({ showToast, showConfirm, dataVersion }) {
   return (
     <div className="space-y-5 sm:space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-white sm:text-2xl">Expenses</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-bold text-white sm:text-2xl">Expenses</h2>
+          {fromCache && <CacheIndicator />}
+        </div>
         <button
           onClick={() => setModalOpen(true)}
           className="btn-primary px-4 py-2.5 text-xs sm:text-sm sm:px-5 sm:py-3"
@@ -1613,20 +1713,49 @@ function Advances({ showToast, showConfirm, dataVersion }) {
     showConfirm,
   })
 
+  const [fromCache, setFromCache] = useState(false)
+
   useEffect(() => { fetchData() }, [dataVersion])
 
   async function fetchData() {
     try {
       setLoading(true)
+
+      // If offline, try loading from cache
+      if (!navigator.onLine) {
+        const cached = await getCache('advances')
+        if (cached) {
+          setFromCache(true)
+          setAdvances(cached.advances || [])
+          setMembers(cached.members || [])
+          return
+        }
+        throw new Error('You are offline. Connect to the internet to load data.')
+      }
+
+      setFromCache(false)
       const [advRes, memRes] = await Promise.all([
         supabase.from('advances').select('*, members(name)').order('payment_date', { ascending: false }),
         supabase.from('members').select('*').order('name'),
       ])
       if (advRes.error) throw advRes.error
       if (memRes.error) throw memRes.error
-      setAdvances(advRes.data || [])
-      setMembers(memRes.data || [])
+      const advances = advRes.data || []
+      const members = memRes.data || []
+      setAdvances(advances)
+      setMembers(members)
+
+      // Cache for offline use
+      setCache('advances', { advances, members })
     } catch (err) {
+      // If fetch fails, try cache as fallback
+      const cached = await getCache('advances')
+      if (cached) {
+        setFromCache(true)
+        setAdvances(cached.advances || [])
+        setMembers(cached.members || [])
+        return
+      }
       setError(err.message)
     } finally {
       setLoading(false)
@@ -1721,7 +1850,6 @@ function Advances({ showToast, showConfirm, dataVersion }) {
       setForm(EMPTY_ADVANCE_FORM)
       setEditingRecord(null)
       setErrors({})
-      setShowForm(false)
       await fetchData()
     } catch (err) {
       showToast('error', err.message || 'Failed to save advance payment')
@@ -1749,7 +1877,10 @@ function Advances({ showToast, showConfirm, dataVersion }) {
   return (
     <div className="space-y-5 sm:space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-white sm:text-2xl">Advances</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-bold text-white sm:text-2xl">Advances</h2>
+          {fromCache && <CacheIndicator />}
+        </div>
         <button
           onClick={() => setModalOpen(true)}
           className="btn-primary px-4 py-2.5 text-xs sm:text-sm sm:px-5 sm:py-3"
@@ -1992,11 +2123,28 @@ function Contributions({ showToast, showConfirm, dataVersion }) {
     showConfirm,
   })
 
+  const [fromCache, setFromCache] = useState(false)
+
   useEffect(() => { fetchData() }, [dataVersion])
 
   async function fetchData() {
     try {
       setLoading(true)
+
+      // If offline, try loading from cache
+      if (!navigator.onLine) {
+        const cached = await getCache('contributions')
+        if (cached) {
+          setFromCache(true)
+          setContributions(cached.contributions || [])
+          setMembers(cached.members || [])
+          if (cached.managerName) setManagerName(cached.managerName)
+          return
+        }
+        throw new Error('You are offline. Connect to the internet to load data.')
+      }
+
+      setFromCache(false)
       const [conRes, memRes, mgrRes] = await Promise.all([
         supabase.from('contributions').select('*, members(name)').order('contribution_date', { ascending: false }),
         supabase.from('members').select('*').order('name'),
@@ -2005,10 +2153,25 @@ function Contributions({ showToast, showConfirm, dataVersion }) {
       if (conRes.error) throw conRes.error
       if (memRes.error) throw memRes.error
       if (mgrRes.error) throw mgrRes.error
-      setContributions(conRes.data || [])
-      setMembers(memRes.data || [])
-      if (mgrRes.data) setManagerName(mgrRes.data.name)
+      const contributions = conRes.data || []
+      const members = memRes.data || []
+      const managerName = mgrRes.data?.name || 'Manager'
+      setContributions(contributions)
+      setMembers(members)
+      setManagerName(managerName)
+
+      // Cache for offline use
+      setCache('contributions', { contributions, members, managerName })
     } catch (err) {
+      // If fetch fails, try cache as fallback
+      const cached = await getCache('contributions')
+      if (cached) {
+        setFromCache(true)
+        setContributions(cached.contributions || [])
+        setMembers(cached.members || [])
+        if (cached.managerName) setManagerName(cached.managerName)
+        return
+      }
       setError(err.message)
     } finally {
       setLoading(false)
@@ -2104,7 +2267,6 @@ function Contributions({ showToast, showConfirm, dataVersion }) {
       setForm(EMPTY_CONTRIB_FORM)
       setEditingRecord(null)
       setErrors({})
-      setShowForm(false)
       await fetchData()
     } catch (err) {
       showToast('error', err.message || 'Failed to save contribution')
@@ -2132,7 +2294,10 @@ function Contributions({ showToast, showConfirm, dataVersion }) {
   return (
     <div className="space-y-5 sm:space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-white sm:text-2xl">Contributions</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-bold text-white sm:text-2xl">Contributions</h2>
+          {fromCache && <CacheIndicator />}
+        </div>
         <button
           onClick={() => setModalOpen(true)}
           className="btn-primary px-4 py-2.5 text-xs sm:text-sm sm:px-5 sm:py-3"
@@ -2324,6 +2489,7 @@ function Settlement({ showToast, dataVersion }) {
   const [allAdvances, setAllAdvances] = useState([])
   const [allContributions, setAllContributions] = useState([])
   const [allMembers, setAllMembers] = useState([])
+  const [fromCache, setFromCache] = useState(false)
   const summaryRef = useRef(null)
 
   useEffect(() => { fetchData() }, [dataVersion])
@@ -2332,6 +2498,24 @@ function Settlement({ showToast, dataVersion }) {
     try {
       setLoading(true)
       setError(null)
+
+      // If offline, try loading from cache
+      if (!navigator.onLine) {
+        const cached = await getCache('settlement')
+        if (cached) {
+          setFromCache(true)
+          setBalances(cached.balances || [])
+          setAllExpenses(cached.allExpenses || [])
+          setAllAdvances(cached.allAdvances || [])
+          setAllContributions(cached.allContributions || [])
+          setAllMembers(cached.allMembers || [])
+          setTotalExpenses(cached.totalExpenses || 0)
+          return
+        }
+        throw new Error('You are offline. Connect to the internet to load data.')
+      }
+
+      setFromCache(false)
       const [balRes, expRes, advRes, conRes, memRes] = await Promise.all([
         supabase.from('v_balances').select('*'),
         supabase.from('expenses').select('*, expense_categories(name), paid_by:members(name)').order('expense_date', { ascending: false }),
@@ -2344,14 +2528,35 @@ function Settlement({ showToast, dataVersion }) {
       if (advRes.error) throw advRes.error
       if (conRes.error) throw conRes.error
       if (memRes.error) throw memRes.error
-      setBalances(balRes.data || [])
-      setAllExpenses(expRes.data || [])
-      setAllAdvances(advRes.data || [])
-      setAllContributions(conRes.data || [])
-      setAllMembers(memRes.data || [])
-      setTotalExpenses((expRes.data || []).reduce((s, e) => s + Number(e.amount), 0))
+      const balances = balRes.data || []
+      const allExpenses = expRes.data || []
+      const allAdvances = advRes.data || []
+      const allContributions = conRes.data || []
+      const allMembers = memRes.data || []
+      const totalExpenses = allExpenses.reduce((s, e) => s + Number(e.amount), 0)
+      setBalances(balances)
+      setAllExpenses(allExpenses)
+      setAllAdvances(allAdvances)
+      setAllContributions(allContributions)
+      setAllMembers(allMembers)
+      setTotalExpenses(totalExpenses)
+
+      // Cache for offline use
+      setCache('settlement', { balances, allExpenses, allAdvances, allContributions, allMembers, totalExpenses })
     } catch (err) {
       console.error(err)
+      // If fetch fails, try cache as fallback
+      const cached = await getCache('settlement')
+      if (cached) {
+        setFromCache(true)
+        setBalances(cached.balances || [])
+        setAllExpenses(cached.allExpenses || [])
+        setAllAdvances(cached.allAdvances || [])
+        setAllContributions(cached.allContributions || [])
+        setAllMembers(cached.allMembers || [])
+        setTotalExpenses(cached.totalExpenses || 0)
+        return
+      }
       setError(err.message)
     } finally {
       setLoading(false)
@@ -2469,7 +2674,10 @@ function Settlement({ showToast, dataVersion }) {
   return (
     <div className="space-y-5 sm:space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-white sm:text-2xl">Settlement</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-bold text-white sm:text-2xl">Settlement</h2>
+          {fromCache && <CacheIndicator />}
+        </div>
         {!settled ? (
           <button
             onClick={handleMakeSettlement}

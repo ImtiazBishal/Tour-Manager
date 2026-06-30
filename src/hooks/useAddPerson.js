@@ -20,14 +20,57 @@ export function useAddPerson({ formFieldName, onPersonAdded, showToast }) {
       showToast('error', 'Person name must be under 100 characters')
       return
     }
+    // Check if offline — can't add new people without a connection
+    if (!navigator.onLine) {
+      showToast('error', 'You are offline. Go online to add a new person.')
+      setAddingPersonLoading(false)
+      return
+    }
+
     try {
       setAddingPersonLoading(true)
+
+      // First check if a member with this name already exists
+      const { data: existing, error: lookupErr } = await supabase
+        .from('members')
+        .select('*')
+        .ilike('name', name)
+        .maybeSingle()
+
+      if (lookupErr) throw lookupErr
+
+      if (existing) {
+        // Use existing member
+        await onPersonAdded(existing)
+        setAddingPerson(false)
+        setNewPersonName('')
+        showToast('success', `Using existing person "${name}"`)
+        return
+      }
+
       const { data, error: insErr } = await supabase
         .from('members')
         .insert({ name })
         .select()
         .single()
-      if (insErr) throw insErr
+      if (insErr) {
+        // Handle race condition: another client may have inserted between our check and insert
+        if (insErr.code === '23505') {
+          const { data: retryExisting } = await supabase
+            .from('members')
+            .select('*')
+            .ilike('name', name)
+            .maybeSingle()
+          if (retryExisting) {
+            await onPersonAdded(retryExisting)
+            setAddingPerson(false)
+            setNewPersonName('')
+            showToast('success', `Using existing person "${name}"`)
+            return
+          }
+        }
+        throw insErr
+      }
       await onPersonAdded(data)
       setAddingPerson(false)
       setNewPersonName('')

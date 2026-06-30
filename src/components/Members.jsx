@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import Modal from './Modal'
+import CacheIndicator from './CacheIndicator'
 import { queueOrRun } from '../lib/sync'
+import { setCache, getCache } from '../lib/dataCache'
 import {
   Plus,
   Loader2,
@@ -24,6 +26,7 @@ export default function Members({ showToast, showConfirm, dataVersion }) {
   const [submitting, setSubmitting] = useState(false)
   const [editingMember, setEditingMember] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [fromCache, setFromCache] = useState(false)
   useEffect(() => { fetchMembers() }, [dataVersion])
 
 
@@ -32,13 +35,38 @@ export default function Members({ showToast, showConfirm, dataVersion }) {
     try {
       setLoading(true)
       setError(null)
+
+      // If offline, try loading from cache
+      if (!navigator.onLine) {
+        const cached = await getCache('members')
+        if (cached) {
+          setFromCache(true)
+          setMembers(cached.members || [])
+          return
+        }
+        throw new Error('You are offline. Connect to the internet to load data.')
+      }
+
+      setFromCache(false)
+
       const { data, error: err } = await supabase
         .from('members')
         .select('*')
         .order('name')
       if (err) throw err
-      setMembers(data || [])
+      const members = data || []
+      setMembers(members)
+
+      // Cache for offline use
+      setCache('members', { members })
     } catch (err) {
+      // If fetch fails, try cache as fallback
+      const cached = await getCache('members')
+      if (cached) {
+        setFromCache(true)
+        setMembers(cached.members || [])
+        return
+      }
       setError(err.message)
     } finally {
       setLoading(false)
@@ -166,6 +194,7 @@ export default function Members({ showToast, showConfirm, dataVersion }) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-white sm:text-2xl">Members</h2>
+          {fromCache && <CacheIndicator />}
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             {members.length} member{members.length !== 1 ? 's' : ''} · {managersCount} manager{managersCount !== 1 ? 's' : ''}
           </p>
