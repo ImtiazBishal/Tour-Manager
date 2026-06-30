@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { downloadCSV } from '../lib/csv'
+import { queueOrRun } from '../lib/sync'
 
 export function useBulkActions({ tableName, items, assignColumn, itemLabel, csvMapFn, csvFileName, fetchData, showToast, showConfirm }) {
   const [selectedIds, setSelectedIds] = useState(new Set())
@@ -25,7 +26,7 @@ export function useBulkActions({ tableName, items, assignColumn, itemLabel, csvM
     showConfirm(`Delete ${selectedIds.size} selected ${itemLabel}?`, async () => {
       try {
         setBulkDeleting(true)
-        const { error } = await supabase.from(tableName).delete().in('id', [...selectedIds])
+        const { error } = await queueOrRun({ table: tableName, operation: 'delete', data: null, filters: [{ column: 'id', value: [...selectedIds], type: 'in' }] })
         if (error) throw error
         showToast('success', `Deleted ${selectedIds.size} ${itemLabel}`)
         setSelectedIds(new Set())
@@ -40,7 +41,7 @@ export function useBulkActions({ tableName, items, assignColumn, itemLabel, csvM
 
   const handleBulkAssign = useCallback(async (memberId) => {
     try {
-      const { error } = await supabase.from(tableName).update({ [assignColumn]: memberId }).in('id', [...selectedIds])
+      const { error } = await queueOrRun({ table: tableName, operation: 'update', data: { [assignColumn]: memberId }, filters: [{ column: 'id', value: [...selectedIds], type: 'in' }] })
       if (error) throw error
       showToast('success', `Assigned ${selectedIds.size} ${itemLabel}`)
       setSelectedIds(new Set())

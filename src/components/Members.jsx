@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import Modal from './Modal'
+import { queueOrRun } from '../lib/sync'
 import {
   Plus,
   Loader2,
@@ -75,10 +76,7 @@ export default function Members({ showToast, showConfirm, dataVersion }) {
     try {
       setSubmitting(true)
       if (editingMember) {
-        const { error: err } = await supabase
-          .from('members')
-          .update({ name, role: formRole })
-          .eq('id', editingMember.id)
+          const { error: err } = await queueOrRun({ table: 'members', operation: 'update', data: { name, role: formRole }, filters: [{ column: 'id', value: editingMember.id }] })
         if (err) {
           if (err.code === '23505') {
             showToast('error', `Member "${name}" already exists`)
@@ -87,12 +85,7 @@ export default function Members({ showToast, showConfirm, dataVersion }) {
           throw err
         }
         showToast('success', `Member "${name}" updated`)
-      } else {
-        const { data, error: err } = await supabase
-          .from('members')
-          .insert({ name, role: formRole })
-          .select()
-          .single()
+      } else {          const { data, error: err } = await queueOrRun({ table: 'members', operation: 'insert', data: { name, role: formRole } })
         if (err) {
           if (err.code === '23505') {
             showToast('error', `Member "${name}" already exists`)
@@ -115,11 +108,7 @@ export default function Members({ showToast, showConfirm, dataVersion }) {
   }
 
   async function handleUpdateRole(memberId, newRole) {
-    try {
-      const { error: err } = await supabase
-        .from('members')
-        .update({ role: newRole })
-        .eq('id', memberId)
+    try {          const { error: err } = await queueOrRun({ table: 'members', operation: 'update', data: { role: newRole }, filters: [{ column: 'id', value: memberId }] })
       if (err) throw err
       showToast('success', `Role updated to ${newRole}`)
       await fetchMembers()
@@ -135,14 +124,11 @@ export default function Members({ showToast, showConfirm, dataVersion }) {
         try {
           // Delete related records first
           await Promise.all([
-            supabase.from('expenses').delete().eq('paid_by', member.id),
-            supabase.from('advances').delete().eq('member_id', member.id),
-            supabase.from('contributions').delete().eq('member_id', member.id),
+            queueOrRun({ table: 'expenses', operation: 'delete', data: null, filters: [{ column: 'paid_by', value: member.id }] }),
+            queueOrRun({ table: 'advances', operation: 'delete', data: null, filters: [{ column: 'member_id', value: member.id }] }),
+            queueOrRun({ table: 'contributions', operation: 'delete', data: null, filters: [{ column: 'member_id', value: member.id }] }),
           ])
-          const { error: err } = await supabase
-            .from('members')
-            .delete()
-            .eq('id', member.id)
+          const { error: err } = await queueOrRun({ table: 'members', operation: 'delete', data: null, filters: [{ column: 'id', value: member.id }] })
           if (err) throw err
           showToast('success', `Member "${member.name}" deleted`)
           await fetchMembers()

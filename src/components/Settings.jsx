@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useSettings } from '../lib/settings'
+import { queueOrRun } from '../lib/sync'
 import {
   X,
   Check,
@@ -61,7 +62,7 @@ export default function Settings({ showToast, showConfirm, onRestartTour }) {
     if (name.length > 50) { showToast('error', 'Name must be under 50 characters'); return }
     try {
       setAddingCategory(true)
-      const { error: err } = await supabase.from('expense_categories').insert({ name })
+      const { error: err } = await queueOrRun({ table: 'expense_categories', operation: 'insert', data: { name } })
       if (err) {
         if (err.code === '23505') { showToast('error', `Category "${name}" already exists`); return }
         throw err
@@ -92,7 +93,7 @@ export default function Settings({ showToast, showConfirm, onRestartTour }) {
     if (name.length < 2) { showToast('error', 'Name must be at least 2 characters'); return }
     if (name.length > 50) { showToast('error', 'Name must be under 50 characters'); return }
     try {
-      const { error: err } = await supabase.from('expense_categories').update({ name }).eq('id', editingCategory.id)
+      const { error: err } = await queueOrRun({ table: 'expense_categories', operation: 'update', data: { name }, filters: [{ column: 'id', value: editingCategory.id }] })
       if (err) {
         if (err.code === '23505') { showToast('error', `Category "${name}" already exists`); return }
         throw err
@@ -111,7 +112,7 @@ export default function Settings({ showToast, showConfirm, onRestartTour }) {
       `Delete category "${cat.name}"? Expenses using this category will be affected.`,
       async () => {
         try {
-          const { error: err } = await supabase.from('expense_categories').delete().eq('id', cat.id)
+          const { error: err } = await queueOrRun({ table: 'expense_categories', operation: 'delete', data: null, filters: [{ column: 'id', value: cat.id }] })
           if (err) throw err
           showToast('success', `Category "${cat.name}" deleted`)
           await fetchCategories()

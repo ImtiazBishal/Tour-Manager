@@ -56,6 +56,9 @@ import { useAddCategory } from './hooks/useAddCategory'
 import ExpenseSharingEditor from './components/ExpenseSharingEditor'
 import Modal from './components/Modal'
 import TourOverlay from './components/TourOverlay'
+import OfflineBanner from './components/OfflineBanner'
+import { useOnlineStatus } from './hooks/useOnlineStatus'
+import { flushQueue, getPendingCount, queueOrRun } from './lib/sync'
 
 /* ─── Constants ─── */
 
@@ -127,6 +130,33 @@ export default function App() {
   const [deferredPrompt, setDeferredPrompt] = useState(null)
   const [showInstallBanner, setShowInstallBanner] = useState(false)
   const installRejectedRef = useRef(false)
+
+  // Offline sync state
+  const { isOnline, wasOffline } = useOnlineStatus()
+  const [pendingSyncCount, setPendingSyncCount] = useState(0)
+
+  // Auto-sync when coming back online
+  useEffect(() => {
+    if (isOnline && wasOffline) {
+      getPendingCount().then((count) => {
+        if (count > 0) {
+          setPendingSyncCount(count)
+          flushQueue().then((result) => {
+            setPendingSyncCount(0)
+            if (result.flushed > 0) {
+              showToast('success', `${result.flushed} change${result.flushed > 1 ? 's' : ''} synced!`)
+            }
+            onDataChange()
+          })
+        }
+      })
+    }
+  }, [isOnline])
+
+  // Check for pending syncs on mount
+  useEffect(() => {
+    getPendingCount().then(setPendingSyncCount)
+  }, [])
 
   // Tour onboarding state
   const [showTour, setShowTour] = useState(() => {
@@ -362,6 +392,9 @@ export default function App() {
           onDismiss={handleDismissInstall}
         />
       )}
+
+      {/* Offline Sync Banner */}
+      <OfflineBanner pendingCount={pendingSyncCount} />
 
       {/* Tour Onboarding */}
       {showTour && (
@@ -1191,30 +1224,28 @@ function Expenses({ showToast, showConfirm, dataVersion }) {
     try {
       setSubmitting(true)
       if (isEditing) {
-        const { error: updErr } = await supabase.from('expenses')
-          .update({
+        const { error: updErr } = await queueOrRun({ table: 'expenses', operation: 'update', data: {
             expense_date: form.expense_date,
             category_id: form.category_id,
             description: form.description.trim(),
             amount: Number(form.amount),
             paid_by: form.paid_by,
-          })
-          .eq('id', editingRecord.id)
+          }, filters: [{ column: 'id', value: editingRecord.id }] })
         if (updErr) throw updErr
         // Update expense shares
         await saveExpenseShares(editingRecord.id)
         showToast('success', 'Expense updated successfully!')
       } else {
-        const { data: newExp, error: insErr } = await supabase.from('expenses').insert({
+        const { data: newExp, error: insErr } = await queueOrRun({ table: 'expenses', operation: 'insert', data: {
           expense_date: form.expense_date,
           category_id: form.category_id,
           description: form.description.trim(),
           amount: Number(form.amount),
           paid_by: form.paid_by,
-        }).select('id').single()
+        } })
         if (insErr) throw insErr
-        // Save expense shares
-        await saveExpenseShares(newExp.id)
+        // Save expense shares (skip if queued offline — shares sync with expense)
+        if (newExp?.id) await saveExpenseShares(newExp.id)
         showToast('success', 'Expense added successfully!')
       }
       setForm(EMPTY_EXPENSE_FORM)
@@ -1236,11 +1267,11 @@ function Expenses({ showToast, showConfirm, dataVersion }) {
       )
       if (customShares.length === 0) {
         // No custom shares - delete any existing ones
-        await supabase.from('expense_shares').delete().eq('expense_id', expenseId)
+        await queueOrRun({ table: 'expense_shares', operation: 'delete', data: null, filters: [{ column: 'expense_id', value: expenseId }] })
         return
       }
       // Delete existing shares and insert new ones
-      const { error: delErr } = await supabase.from('expense_shares').delete().eq('expense_id', expenseId)
+      const { error: delErr } = await queueOrRun({ table: 'expense_shares', operation: 'delete', data: null, filters: [{ column: 'expense_id', value: expenseId }] })
       if (delErr) throw delErr
       const records = customShares.map(([memberId, s]) => ({
         expense_id: expenseId,
@@ -1248,7 +1279,7 @@ function Expenses({ showToast, showConfirm, dataVersion }) {
         share_type: s.type,
         fixed_amount: s.type === 'fixed' ? Number(s.fixedAmount) : null,
       }))
-      const { error: insErr } = await supabase.from('expense_shares').insert(records)
+      const { error: insErr } = await queueOrRun({ table: 'expense_shares', operation: 'insert', data: records })
       if (insErr) throw insErr
     } catch (err) {
       console.error('Failed to save expense shares:', err)
@@ -1258,7 +1289,7 @@ function Expenses({ showToast, showConfirm, dataVersion }) {
 
   async function handleDelete(id) {
     try {
-      const { error: delErr } = await supabase.from('expenses').delete().eq('id', id)
+      const { error: delErr } = await queueOrRun({ table: 'expenses', operation: 'delete', data: null, filters: [{ column: 'id', value: id }] })
       if (delErr) throw delErr
       showToast('success', 'Expense deleted')
       await fetchData()
@@ -1667,25 +1698,23 @@ function Advances({ showToast, showConfirm, dataVersion }) {
     try {
       setSubmitting(true)
       if (isEditing) {
-        const { error: updErr } = await supabase.from('advances')
-          .update({
+        const { error: updErr } = await queueOrRun({ table: 'advances', operation: 'update', data: {
             payment_date: form.payment_date,
             member_id: form.member_id,
             amount: Number(form.amount),
             method: form.method,
             notes: form.notes || null,
-          })
-          .eq('id', editingRecord.id)
+          }, filters: [{ column: 'id', value: editingRecord.id }] })
         if (updErr) throw updErr
         showToast('success', 'Advance payment updated successfully!')
       } else {
-        const { error: insErr } = await supabase.from('advances').insert({
+        const { error: insErr } = await queueOrRun({ table: 'advances', operation: 'insert', data: {
           payment_date: form.payment_date,
           member_id: form.member_id,
           amount: Number(form.amount),
           method: form.method,
           notes: form.notes || null,
-        })
+        } })
         if (insErr) throw insErr
         showToast('success', 'Advance payment added successfully!')
       }
@@ -1703,7 +1732,7 @@ function Advances({ showToast, showConfirm, dataVersion }) {
 
   async function handleDelete(id) {
     try {
-      const { error: delErr } = await supabase.from('advances').delete().eq('id', id)
+      const { error: delErr } = await queueOrRun({ table: 'advances', operation: 'delete', data: null, filters: [{ column: 'id', value: id }] })
       if (delErr) throw delErr
       showToast('success', 'Advance deleted')
       await fetchData()
@@ -2054,23 +2083,21 @@ function Contributions({ showToast, showConfirm, dataVersion }) {
     try {
       setSubmitting(true)
       if (isEditing) {
-        const { error: updErr } = await supabase.from('contributions')
-          .update({
+        const { error: updErr } = await queueOrRun({ table: 'contributions', operation: 'update', data: {
             contribution_date: form.contribution_date,
             member_id: form.member_id,
             amount: Number(form.amount),
             reason: form.reason.trim(),
-          })
-          .eq('id', editingRecord.id)
+          }, filters: [{ column: 'id', value: editingRecord.id }] })
         if (updErr) throw updErr
         showToast('success', 'Contribution updated successfully!')
       } else {
-        const { error: insErr } = await supabase.from('contributions').insert({
+        const { error: insErr } = await queueOrRun({ table: 'contributions', operation: 'insert', data: {
           contribution_date: form.contribution_date,
           member_id: form.member_id,
           amount: Number(form.amount),
           reason: form.reason.trim(),
-        })
+        } })
         if (insErr) throw insErr
         showToast('success', 'Contribution added successfully!')
       }
@@ -2088,7 +2115,7 @@ function Contributions({ showToast, showConfirm, dataVersion }) {
 
   async function handleDelete(id) {
     try {
-      const { error: delErr } = await supabase.from('contributions').delete().eq('id', id)
+      const { error: delErr } = await queueOrRun({ table: 'contributions', operation: 'delete', data: null, filters: [{ column: 'id', value: id }] })
       if (delErr) throw delErr
       showToast('success', 'Contribution deleted')
       await fetchData()
